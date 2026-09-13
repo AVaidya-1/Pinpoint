@@ -1,0 +1,21 @@
+{
+  "expected_remote": "C:/Users/vaidy/Documents/Pinpoint/visual-evidence-remote.git",
+  "fingerprint_roots": [
+    "scripts",
+    "docs",
+    "orchestration.json",
+    ".gitignore",
+    ".env.example",
+    "backend",
+    "frontend",
+    "fixtures",
+    "app_tools",
+    "Start Agent App.cmd"
+  ],
+  "models": {
+    "Director": "gpt-6-astra",
+    "Foreman1": "claude-opus-4-6",
+    "Foreman2": "gpt-5.6-sol",
+    "Worker": "opencode/muse-spark-1.3-contributor-free"
+  }
+}
