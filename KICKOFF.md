@@ -82,10 +82,35 @@ The initial task `IMPORT_VIEWER_SLICE` is already defined in
 `docs/tasks/initial/manifest.json` with its full task document at
 `docs/tasks/initial/TASK_IMPORT_VIEWER_SLICE.md`.
 
+## Real test documents — USE THESE
+
+Five curated real-world PDFs are at `fixtures/documents/` (gitignored since
+they're large binaries). A detailed test plan with specific questions and
+expected evidence targets is at `fixtures/documents/Testing documents readme.md`
+(tracked in source). **Read this readme before designing the evaluation.**
+
+| Document | Pages to import | Tests |
+|---|---|---|
+| Raspberry Pi Pico datasheet | 5–10, 16 (7 pages) | Pinout diagram, operating limits table, mechanical drawing, negative control |
+| TI NE555 timer datasheet | 1, 5, 7–9, 11 (6 pages) | Block diagram, spec table, characteristic curves/charts, application schematic |
+| Lippert electric step diagnostics | 1–4 (4 pages) | **Core demo target** — flowchart branches, decision nodes, multi-box evidence |
+| Prusa i3 MK3S+ handbook | 8–10, 48–52 (7 pages) | Photo/assembly, callout labels, text lookup, negative control |
+| FAA Pilot's Handbook excerpt | 1–6 (6 pages) | Instrument dial markings, schematic routing |
+
+Total: 30 recommended pages (exceeds the 20-page limit — select a subset per
+search, or use fewer page ranges). The readme contains exact sample questions
+and expected bounding targets for each document.
+
+Use these documents for the live evaluation instead of (or alongside) generated
+synthetic fixtures. Generated fixtures are still useful for deterministic geometry
+tests where you need known coordinates, but real evaluation quality comes from
+these real technical PDFs. The readme's question/target table maps directly to
+the product brief's evaluation categories (text, table, diagram, flowchart,
+chart, photo, absent-answer).
+
 ## What's NOT done
 
 - No application code exists yet (backend/app/, frontend/src/ are empty placeholders)
-- No fixtures generated
 - No preflight run against the model API
 - No tests written
 - No APP_README.md

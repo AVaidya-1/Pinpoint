@@ -12,6 +12,8 @@ dist/
 build/
 data/
 fixtures/generated/
+fixtures/documents/*.pdf
+fixtures/documents/*.PDF
 playwright-report/
 test-results/
 coverage/
