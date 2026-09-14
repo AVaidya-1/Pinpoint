@@ -21,7 +21,7 @@
 param(
     [string]$Tasks = '',
     [string]$WorkerModel = 'opencode/muse-spark-1.3-contributor-free',
-    [string]$Foreman1Model = 'opencode/muse-spark-1.3-contributor-free',
+    [string]$Foreman1Model = 'claude-opus-4-6',
     [string]$Foreman2Model = 'gpt-5.6-sol',
     [string]$DirectorModel = 'gpt-6-astra',
     [switch]$SkipReview,
