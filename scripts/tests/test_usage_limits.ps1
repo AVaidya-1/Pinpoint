@@ -43,6 +43,7 @@ Clear-DirectorPause
 Clear-UsageCooldown 'Director'
 Assert ($null -eq (Read-UsageCooldown 'Foreman2')) 'Success clears shared cooldown'
 
+$Foreman1Model = 'claude-opus-4-6'
 $shortReset = [datetimeoffset]::UtcNow.AddSeconds(1)
 Write-TeamJson (Join-Path $OvernightDir 'usage-anthropic.json') @{provider='anthropic';retry_at=$shortReset.ToString('o');reset_source='provider reported';next_check_at=$shortReset.ToString('o');consecutive_limits=1;evidence='claude-session-limit.log';updated=[datetimeoffset]::UtcNow.ToString('o')}
 Assert (Wait-UsageCooldown 'Foreman1' 'planner-B') 'Claude wait returns automatically at the reported reset'
@@ -50,6 +51,9 @@ $waitRuntime = Get-Content (Join-Path $OvernightDir 'runtime.json') -Raw | Conve
 Assert ($waitRuntime.status -eq 'QUOTA-WAIT') 'Quota heartbeat retains QUOTA-WAIT status'
 Assert (([string]$waitRuntime.action) -match 'Waiting for usage limit reset .* automatic retry scheduled.*planner-B.*\d+s remaining') 'Quota heartbeat shows automatic retry, role action, and countdown'
 Clear-UsageCooldown 'Foreman1'
+$Foreman1Model = 'opencode/muse-spark-1.3-contributor-free'
+Assert ((Get-UsageProvider 'Foreman1') -eq 'opencode') 'Configured Muse Foreman uses the OpenCode quota pool'
+Assert ($null -eq (Read-UsageCooldown 'Foreman1')) 'Muse Foreman ignores a stale Anthropic cooldown'
 
 function Get-CodexAccountUsage { return @{available=$true;reset_at=$null} }
 Write-TeamJson (Join-Path $OvernightDir 'usage-openai.json') @{provider='openai';retry_at=[datetimeoffset]::UtcNow.AddHours(6).ToString('o');reset_source='estimated backoff';consecutive_limits=3;evidence='mock'}

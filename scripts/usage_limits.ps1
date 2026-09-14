@@ -1,6 +1,13 @@
 # Durable provider cooldowns. No billing changes or model substitutions.
 function Get-UsageProvider {
     param([string]$Role)
+    $model = ''
+    $modelVariable = Get-Variable -Name ($Role + 'Model') -Scope Script -ErrorAction SilentlyContinue
+    if ($modelVariable) { $model = [string]$modelVariable.Value }
+    if (-not $model) {
+        try { $model = [string](Get-TeamConfig).models.$Role } catch { $model = '' }
+    }
+    if ($model -match '^opencode/') { return 'opencode' }
     switch ($Role) {
         'Foreman1' { return 'anthropic' }
         'Worker' { return 'opencode' }

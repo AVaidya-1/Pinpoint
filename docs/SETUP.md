@@ -44,7 +44,7 @@ Edit `orchestration.json`:
   "fingerprint_roots": ["scripts", "docs", "orchestration.json", "src", "tests"],
   "models": {
     "Director": "gpt-6-astra",
-    "Foreman1": "claude-opus-4-6",
+    "Foreman1": "opencode/muse-spark-1.3-contributor-free",
     "Foreman2": "gpt-5.6-sol",
     "Worker": "opencode/muse-spark-1.3-contributor-free"
   }
@@ -65,9 +65,9 @@ Missing roots disable PASS reuse. The recursive scan excludes `.git`, `.venv`,
 change should invalidate an old task approval. Hashes include absolute paths,
 so moving a checkout also invalidates cached passes.
 
-Model configuration changes model IDs within the existing provider routing:
-Director/F2 use Codex, F1 uses Claude, Worker uses OpenCode. Changing a provider
-requires changing both process transport and usage-provider mapping. Runner
+Model configuration selects provider routing from the model ID: models beginning
+with `opencode/` use OpenCode; Director/F2 otherwise use Codex, F1 otherwise uses
+Claude. Runner
 `-DirectorModel`, `-Foreman1Model`, `-Foreman2Model`, `-WorkerModel` overrides apply
 to that runner invocation; the dashboard and repair helper use the saved config.
 Efforts are fixed by role: low, medium, high, high respectively; Director repair

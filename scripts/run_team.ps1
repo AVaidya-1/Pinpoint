@@ -3,7 +3,7 @@
   Overnight runner: 4-tier autonomous supervisor for product task rounds.
 .DESCRIPTION
   Tier 1 - Director  (gpt-6-astra, low):   reads project docs, sets strategic direction
-  Tier 2 - Foreman 1 (claude-opus-4-6, med): breaks Director plan into tasks, reviews worker output
+  Tier 2 - Foreman 1 (configured model, med): breaks Director plan into tasks, reviews worker output
   Tier 3 - Foreman 2 (gpt-5.6-sol, high):   verifies Foreman 1 outputs against Director goals
   Tier 4 - Worker    (opencode/muse-spark-1.3-contributor-free, high): executes one task at a time
 
@@ -21,7 +21,7 @@
 param(
     [string]$Tasks = '',
     [string]$WorkerModel = 'opencode/muse-spark-1.3-contributor-free',
-    [string]$Foreman1Model = 'claude-opus-4-6',
+    [string]$Foreman1Model = 'opencode/muse-spark-1.3-contributor-free',
     [string]$Foreman2Model = 'gpt-5.6-sol',
     [string]$DirectorModel = 'gpt-6-astra',
     [switch]$SkipReview,
@@ -397,7 +397,7 @@ function Invoke-WorkerWithRetry {
 }
 
 
-# -- Tier 2: Foreman 1 (Opus) reviews worker output --------------------
+# -- Tier 2: Foreman 1 reviews worker output ---------------------------
 
 function Build-Foreman1ReviewPrompt {
     param([hashtable]$Task, [string]$DirectorBriefing)
@@ -455,7 +455,7 @@ function Invoke-Foreman2Verify {
         $parts += $firstLines
     }
     $parts += '---'
-    $parts += "Foreman 1 (Opus) reviewed the worker output for task $($Task.Name) and wrote a verdict."
+    $parts += "Foreman 1 reviewed the worker output for task $($Task.Name) and wrote a verdict."
     $parts += "Read Foreman 1''s review at: $F1ReviewFile"
     $parts += "Read the task doc: $($Task.Doc)"
     $parts += "Read the worker output under: $outputDir"
@@ -536,7 +536,7 @@ function Execute-Task {
             }
         }
 
-        # Foreman 1 (Opus) reviews worker output
+        # Foreman 1 reviews worker output
         $f1Result = Invoke-Foreman1Review -Task $Task -ReviewNum $revisionCount -DirectorBriefing $DirectorBriefing
 
         # Foreman 2 (Sol) verifies Foreman 1's review
@@ -810,7 +810,7 @@ function Validate-Manifest {
     return ,$errors
 }
 
-# -- Phase 2: planner (Opus creates rounds, Sol verifies) ---------------
+# -- Phase 2: planner (Foreman 1 creates rounds, Foreman 2 verifies) ----
 
 function Build-PlannerPrompt {
     param([string]$RoundName, [string]$RoundContextDir, [string]$DirectorBriefing)
@@ -855,7 +855,7 @@ function Build-PlanRevisionPrompt {
 function Build-PlanReviewPrompt {
     param([string]$NewRoundDir, [string]$PrevContextDir, [string]$DirectorBriefing)
     $parts = @()
-    $parts += 'You are Foreman 2, verifying a PLAN created by Foreman 1 (Opus).'
+    $parts += 'You are Foreman 2, verifying a PLAN created by Foreman 1.'
     if ($DirectorBriefing) {
         $parts += 'The Director''s strategic goal:'
         $firstLines = ($DirectorBriefing -split "`n" | Select-Object -First 3) -join ' '

@@ -157,9 +157,9 @@ function Invoke-AgentProcess {
         if ($fullPrompt.Length -gt 52000) { throw 'Initial request exceeds the context budget.' }
         [IO.File]::WriteAllText($promptFile, $fullPrompt, [Text.UTF8Encoding]::new($false))
         Write-TeamJson $operationFile @{ id=$operationId; role=$Role; model=$Model; effort=$Effort; label=$Label; status='DISPATCHED'; prompt=$promptFile; stdout=$outFile; stderr=$errFile; updated=(Get-Date).ToString('o') }
-        if ($Role -eq 'Worker') {
+        if ($Model -match '^opencode/') {
             $command = "opencode run --model $Model --auto --variant $Effort"
-            if ($WorkerCmd) { $command = $WorkerCmd }
+            if ($Role -eq 'Worker' -and $WorkerCmd) { $command = $WorkerCmd }
             # OpenCode needs a pipe rather than Start-Process's stdin redirect.
             $command = "type `"$promptFile`" | $command"
         }
