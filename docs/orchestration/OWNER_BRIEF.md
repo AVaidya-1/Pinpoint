@@ -35,7 +35,6 @@ report that clearly; a runnable app is not proof of successful localization.
 
 Product checkout: C:/Users/vaidy/Documents/Pinpoint/visual-evidence.
 Product origin: C:/Users/vaidy/Documents/Pinpoint/visual-evidence-remote.git (local).
-OpenRouter API key is available as a free-tier alternative to the Gemini API for
-Gemma 4 inference (model: google/gemma-4-31b-it:free). GEMINI_API_KEY is also
-present. Both are free tier.
+Three free-tier API keys are available for Gemma 4 31B IT inference:
+GEMINI_API_KEY, OPENROUTER_KEY, and NVIDIA_API_KEY. All are in .env.
 Before dispatch require successful live role smoke/pilot checks and Gemma image preflight.

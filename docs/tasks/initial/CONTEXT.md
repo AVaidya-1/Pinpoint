@@ -11,10 +11,10 @@ uv installed at C:\Users\vaidy\.local\bin\uv. Node v24.14.1 available.
 All three coding CLIs (codex, claude, opencode) authenticated and smoke-tested.
 
 Product origin: C:/Users/vaidy/Documents/Pinpoint/visual-evidence-remote.git (local).
-GEMINI_API_KEY and OPENROUTER_KEY are both present in .env (gitignored).
-Both provide free access to gemma-4-31b-it.
-OpenRouter free-tier rate limits for gemma-4-31b-it: 30 requests/minute,
-16k input tokens/minute, 14,400 requests/day max.
+GEMINI_API_KEY, OPENROUTER_KEY, and NVIDIA_API_KEY are all present in .env (gitignored).
+All three provide free access to gemma-4-31b-it.
+OpenRouter free-tier rate limits: 30 rpm, 16k input tokens/min, 14,400 requests/day.
+NVIDIA Build free-tier rate limits: 40 rpm.
 
 Real test PDFs are at fixtures/documents/ (gitignored large binaries).
 Read fixtures/documents/Testing documents readme.md for the test plan:

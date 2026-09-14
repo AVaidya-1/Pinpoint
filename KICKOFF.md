@@ -16,14 +16,16 @@ document controls scope.
 
 ## Model access
 
-Two free API keys are in `.env` (gitignored):
+Three free API keys are in `.env` (gitignored):
 
 - `GEMINI_API_KEY` — Google's Gemini API, model `gemma-4-31b-it`
   (docs: https://ai.google.dev/gemma/docs/core/gemma_on_gemini_api)
 - `OPENROUTER_KEY` — OpenRouter, model `google/gemma-4-31b-it:free`
-  (endpoint: https://openrouter.ai/api/v1, OpenAI-compatible)
+  (endpoint: https://openrouter.ai/api/v1, OpenAI-compatible, 30 rpm)
+- `NVIDIA_API_KEY` — NVIDIA Build, model `gemma-4-31b-it`
+  (endpoint: https://build.nvidia.com/google/gemma-4-31b-it, 40 rpm)
 
-Both are free tier. Use whichever works.
+All free tier. Use whichever works.
 
 ## Test documents — USE THESE
 
