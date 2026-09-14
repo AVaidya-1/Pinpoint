@@ -1,0 +1,21 @@
+{
+  "round": "round-001",
+  "tasks": [
+    {
+      "name": "IMPORT_VIEWER_SLICE",
+      "doc": "docs/tasks/round-001/TASK_IMPORT_VIEWER_SLICE.md",
+      "timeout_min": 75,
+      "continue_on_fail": false,
+      "gate_files": [
+        "out/orchestration/import-viewer/report.json"
+      ],
+      "json_gates": [
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/all_pass",
+          "expect": true
+        }
+      ]
+    }
+  ]
+}

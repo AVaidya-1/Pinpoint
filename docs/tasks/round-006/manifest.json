@@ -1,0 +1,154 @@
+{
+  "round": "round-006",
+  "tasks": [
+    {
+      "name": "IMPORT_VIEWER_SLICE",
+      "doc": "docs/tasks/round-006/TASK_IMPORT_VIEWER_SLICE.md",
+      "timeout_min": 75,
+      "continue_on_fail": false,
+      "gate_files": [
+        "out/orchestration/import-viewer/report.json",
+        "out/orchestration/import-viewer/validation.json",
+        "out/orchestration/import-viewer/dom-bounds.json",
+        "out/orchestration/import-viewer/e2e-evidence.json"
+      ],
+      "json_gates": [
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/all_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/finalized",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/uv_sync_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/npm_ci_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/playwright_install_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/fixture_gen_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/pytest_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/vite_build_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/playwright_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/validator_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/validator_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/artifacts_complete",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/hash_all_match",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/hash_nonempty",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/alignment_all_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/alignment_view_count",
+          "expect": 5
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/orientation_all_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/orientation_case_count",
+          "expect": 5
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/page_identity_all_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/page_identity_case_count",
+          "expect": 1
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_valid",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_question_count",
+          "expect": 20
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_split_valid",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/dom_bounds_complete",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/dom_bounds_entry_count",
+          "expect": 10
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/restart_persistence_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/screenshot_present",
+          "expect": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "round": "round-002",
+  "tasks": [
+    {
+      "name": "IMPORT_VIEWER_SLICE",
+      "doc": "docs/tasks/round-002/TASK_IMPORT_VIEWER_SLICE.md",
+      "timeout_min": 75,
+      "continue_on_fail": false,
+      "gate_files": [
+        "out/orchestration/import-viewer/report.json"
+      ],
+      "json_gates": [
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/all_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/byte_preservation",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/overlay_aligned",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/rotation_cropbox_exif_pass",
+          "expect": true
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/uv_sync_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/npm_ci_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/fixture_gen_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/pytest_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/vite_build_exit",
+          "expect": 0
+        },
+        {
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/playwright_exit",
+          "expect": 0
+        }
+      ]
+    }
+  ]
+}
