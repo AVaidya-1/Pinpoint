@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import './App.css';
-import { getHealth, listDocuments } from './api';
+import { getHealth, listDocuments, type EvidenceBox, type SearchResult } from './api';
 import DocumentList, { Selection } from './components/DocumentList';
 import EvidenceList from './components/EvidenceList';
 import PageViewer from './components/PageViewer';
@@ -11,6 +11,8 @@ export default function App() {
   const [capacity, setCapacity] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [result, setResult] = useState<SearchResult | null>(null);
+  const [viewerBoxes, setViewerBoxes] = useState<EvidenceBox[] | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     const data = await listDocuments();
@@ -22,6 +24,24 @@ export default function App() {
     refresh().catch(() => {});
     getHealth().then(setHealth).catch(() => {});
   }, [refresh]);
+
+  const readyDocs = docs.filter((d: any) => d.status === 'ready');
+  const documentIds = readyDocs.map((d: any) => d.id);
+
+  function onSidebarSelect(sel: Selection) {
+    setSelection(sel);
+    setViewerBoxes(undefined);
+  }
+
+  function onEvidenceSelect(pageId: string, physicalPage: number, boxes: EvidenceBox[]) {
+    const match = (result?.evidence ?? []).find((e) => e.page_id === pageId);
+    setSelection({
+      docId: match?.document_id ?? '',
+      pageId,
+      physicalPage,
+    });
+    setViewerBoxes(boxes);
+  }
 
   return (
     <div>
@@ -36,12 +56,15 @@ export default function App() {
       </header>
       <div className="ve-main">
         <div className="ve-side">
-          <QuestionBar />
-          <DocumentList docs={docs} capacity={capacity} onChange={refresh} onSelect={setSelection} />
-          <EvidenceList />
+          <QuestionBar documentIds={documentIds} onResults={setResult} />
+          <div className="ve-card" data-testid="search-scope">
+            Searching {documentIds.length} document(s): {readyDocs.map((d: any) => d.filename).join(', ') || 'none yet'}
+          </div>
+          <DocumentList docs={docs} capacity={capacity} onChange={refresh} onSelect={onSidebarSelect} />
+          <EvidenceList evidence={result?.evidence ?? []} onSelect={onEvidenceSelect} />
         </div>
         <div className="ve-viewer">
-          <PageViewer selection={selection} />
+          <PageViewer selection={selection} boxes={viewerBoxes} />
         </div>
       </div>
     </div>

@@ -144,7 +144,12 @@ function Invoke-AgentProcess {
         Copy-Item -LiteralPath $operationFile -Destination (Join-Path $LogDir ("prior-operation-$operationId.json"))
     }
     while ($true) {
-        if ((Test-ShouldStop) -or -not (Wait-UsageCooldown $Role $Label)) {
+        $usageRole = $Role
+        if ($Role -eq 'Foreman1') {
+            $route = Resolve-ForemanRoute
+            $Model = $route.Model; $Effort = $route.Effort; $usageRole = $route.UsageRole
+        }
+        if ((Test-ShouldStop) -or -not (Wait-UsageCooldown $usageRole $Label)) {
             return @{ Status='STOPPED'; Output=''; LogFile=''; ExitCode=-1; QuotaHit=$false }
         }
         $prefix = (($Label -replace '[^a-zA-Z0-9_-]', '_') + '_' + [Guid]::NewGuid().ToString('N'))
@@ -163,7 +168,7 @@ function Invoke-AgentProcess {
             # OpenCode needs a pipe rather than Start-Process's stdin redirect.
             $command = "type `"$promptFile`" | $command"
         }
-        elseif ($Role -eq 'Foreman1') {
+        elseif ($Model -match '^claude-') {
             $command = "claude -p --permission-mode auto --model $Model --effort $Effort < `"$promptFile`""
         }
         else {
@@ -173,7 +178,7 @@ function Invoke-AgentProcess {
         }
         Write-Log "$Label -- $Role ($Model, $Effort)"
         Add-Handoff 'Supervisor' $Role $Label $promptFile
-        Write-Runtime 'RUNNING' $Role $Label $outFile
+        Write-Runtime 'RUNNING' $Role "$Label | $Model | $Effort" $outFile
         $proc = $null
         $processId = 0
         $status = 'ERROR'
@@ -201,7 +206,7 @@ function Invoke-AgentProcess {
                     break
                 }
                 if (((Get-Date) - $heartbeat).TotalSeconds -ge 5) {
-                    Write-Runtime 'RUNNING' $Role $Label $outFile
+                    Write-Runtime 'RUNNING' $Role "$Label | $Model | $Effort" $outFile
                     $heartbeat = Get-Date
                 }
             }
@@ -217,7 +222,7 @@ function Invoke-AgentProcess {
         $errors = ''
         if (Test-Path $outFile) { $output = [string](Get-Content $outFile -Raw -Encoding UTF8) }
         if (Test-Path $errFile) { $errors = [string](Get-Content $errFile -Raw -Encoding UTF8) }
-        if ($Role -in @('Director','Foreman2')) {
+        if ($Model -notmatch '^(claude-|opencode/)') {
             $output = ''
             if (Test-Path $finalFile) { $output = [string](Get-Content $finalFile -Raw -Encoding UTF8) }
         }
@@ -236,13 +241,17 @@ function Invoke-AgentProcess {
         if ($quota) {
             $quotaEvidence = $errFile
             if ((Test-Path -LiteralPath $outFile) -and (Get-Item -LiteralPath $outFile).Length -gt 0) { $quotaEvidence = $outFile }
-            Set-UsageCooldown $Role $failure $quotaEvidence
+            Set-UsageCooldown $usageRole $failure $quotaEvidence
             $recovery = "`r`nRECOVERY: The previous attempt ended at a provider usage limit. Inspect existing task artifacts and previous output ($outFile and $errFile) before continuing. Preserve completed work; validate partial writes. Do not repeat external side effects. If their outcome is uncertain, report a blocker. Complete the original assignment and required review response."
-            if (Wait-QuotaWindow $Role $Label) { continue }
+            if ($Role -eq 'Foreman1' -and $usageRole -eq 'Foreman1') {
+                Add-Handoff 'Foreman1' 'Team' 'Opus usage limit: continuing the same Foreman assignment with GPT-5.6 Sol high.' $quotaEvidence
+                continue
+            }
+            if (Wait-QuotaWindow $usageRole $Label) { continue }
             return @{Status='STOPPED'; Output=$output; LogFile=$outFile; ExitCode=$exitCode; QuotaHit=$false}
         }
         if ($status -eq 'OK' -and -not [string]::IsNullOrWhiteSpace($output)) {
-            Clear-UsageCooldown $Role
+            Clear-UsageCooldown $usageRole
             Remove-Item -LiteralPath $operationFile
             return @{Status='OK'; Output=$output; LogFile=$outFile; ExitCode=$exitCode; QuotaHit=$false}
         }

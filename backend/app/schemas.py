@@ -61,3 +61,51 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     code: str
     message: str
+
+
+class SearchRequest(BaseModel):
+    question: str
+    document_ids: list[str]
+    force_refresh: bool = False
+
+
+class SearchCreated(BaseModel):
+    search_id: str
+    job_id: str
+
+
+class CoverageInfo(BaseModel):
+    checked_pages: int
+    total_pages: int
+
+
+class EvidenceItem(BaseModel):
+    id: str
+    document_id: str
+    filename: str
+    page_id: str
+    physical_page_number: int
+    kind: str
+    scope: str
+    boxes: list[list[float]]
+    image_url: str
+
+
+class SearchResponse(BaseModel):
+    id: str
+    state: str
+    outcome: str
+    coverage: CoverageInfo
+    evidence: list[EvidenceItem]
+    model_id: str
+    errors: list[dict] = Field(default_factory=list)
+
+
+class JobResponse(BaseModel):
+    id: str
+    kind: str
+    state: str
+    completed_units: int
+    total_units: int
+    error_code: str | None = None
+    cancel_requested: bool = False

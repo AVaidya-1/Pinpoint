@@ -21,12 +21,18 @@ from .ingestion import (
 from .jobs import create_job, set_job_state
 from .schemas import (
     CapacityInfo,
+    CoverageInfo,
     DocumentCommit,
     DocumentEnqueued,
     DocumentInfo,
     DocumentListResponse,
+    EvidenceItem,
     HealthResponse,
+    JobResponse,
     PageInfo,
+    SearchCreated,
+    SearchRequest,
+    SearchResponse,
     UploadResponse,
 )
 
@@ -302,6 +308,20 @@ def delete_document(doc_id: str) -> JSONResponse:
         if int(busy["n"]) > 0:
             raise HTTPException(status_code=409, detail={"code": "busy", "message": "A job is active"})
         pages = conn.execute("SELECT * FROM pages WHERE document_id = ?", (doc_id,)).fetchall()
+        page_ids = [p["id"] for p in pages]
+        # Invalidate searches that referenced this document: remove their
+        # evidence and search records so old results cannot reopen removed
+        # pages. Page-level rows cascade via foreign keys.
+        if page_ids:
+            for srow in conn.execute("SELECT id, page_snapshot_json FROM searches").fetchall():
+                try:
+                    snap = json.loads(srow["page_snapshot_json"])
+                except (ValueError, TypeError):
+                    continue
+                snap_ids = {p.get("page_id") for p in snap if isinstance(p, dict)}
+                if snap_ids & set(page_ids):
+                    conn.execute("DELETE FROM evidence WHERE search_id = ?", (srow["id"],))
+                    conn.execute("DELETE FROM searches WHERE id = ?", (srow["id"],))
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
         # Remove associated local files; stale result links cannot resolve
@@ -355,5 +375,265 @@ def document_original(doc_id: str) -> FileResponse:
             media_type=row["mime_type"],
             filename=row["original_filename"],
         )
+    finally:
+        conn.close()
+
+
+def _search_pages_snapshot(conn, document_ids: list[str]) -> list[dict]:
+    """Ready pages in document order then physical page order."""
+    pages: list[dict] = []
+    for doc_id in document_ids:
+        rows = conn.execute(
+            "SELECT * FROM pages WHERE document_id = ? ORDER BY physical_page_number",
+            (doc_id,),
+        ).fetchall()
+        for r in rows:
+            pages.append(
+                {
+                    "page_id": r["id"],
+                    "document_id": doc_id,
+                    "raster_sha256": r["raster_sha256"],
+                }
+            )
+    return pages
+
+
+def _job_response(conn, job_id: str) -> JobResponse:
+    row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Unknown job"})
+    return JobResponse(
+        id=row["id"],
+        kind=row["kind"],
+        state=row["state"],
+        completed_units=int(row["completed_units"]),
+        total_units=int(row["total_units"]),
+        error_code=row["error_code"],
+        cancel_requested=bool(row["cancel_requested"]),
+    )
+
+
+def _search_response(conn, search_id: str) -> SearchResponse:
+    srow = conn.execute("SELECT * FROM searches WHERE id = ?", (search_id,)).fetchone()
+    if srow is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Unknown search"})
+    jrow = conn.execute("SELECT * FROM jobs WHERE id = ?", (srow["job_id"],)).fetchone()
+    state = jrow["state"] if jrow else "unknown"
+    ev_rows = conn.execute(
+        "SELECT e.*, p.physical_page_number, p.document_id, d.original_filename "
+        "FROM evidence e JOIN pages p ON p.id = e.page_id "
+        "JOIN documents d ON d.id = p.document_id "
+        "WHERE e.search_id = ? ORDER BY p.document_id, p.physical_page_number",
+        (search_id,),
+    ).fetchall()
+    items = [
+        EvidenceItem(
+            id=r["id"],
+            document_id=r["document_id"],
+            filename=r["original_filename"],
+            page_id=r["page_id"],
+            physical_page_number=int(r["physical_page_number"]),
+            kind=r["kind"],
+            scope=r["scope"],
+            boxes=json.loads(r["boxes_json"]),
+            image_url=f"/api/pages/{r['page_id']}/image",
+        )
+        for r in ev_rows
+    ]
+    errors: list[dict] = []
+    if jrow and jrow["error_code"]:
+        errors.append({"code": jrow["error_code"]})
+    return SearchResponse(
+        id=srow["id"],
+        state=state,
+        outcome=srow["outcome"],
+        coverage=CoverageInfo(
+            checked_pages=int(srow["checked_pages"]), total_pages=int(srow["total_pages"])
+        ),
+        evidence=items,
+        model_id=srow["model_id"],
+        errors=errors,
+    )
+
+
+@app.post("/api/searches", response_model=SearchCreated, status_code=202)
+def create_search(body: SearchRequest) -> SearchCreated:
+    from . import search as search_engine
+
+    question = (body.question or "").strip()
+    if not question:
+        raise HTTPException(status_code=422, detail={"code": "empty_question", "message": "Question is empty"})
+    if len(question) > 1000:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "question_too_long", "message": "Question exceeds 1000 characters"},
+        )
+    if not body.document_ids:
+        raise HTTPException(
+            status_code=422, detail={"code": "no_documents", "message": "No documents selected"}
+        )
+    settings = get_settings()
+    conn = db.get_connection(settings.data_dir)
+    try:
+        ready_total = conn.execute(
+            "SELECT COUNT(*) AS n FROM documents WHERE status = 'ready'"
+        ).fetchone()
+        if int(ready_total["n"]) == 0:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "no_ready_documents", "message": "No ready documents in the workspace"},
+            )
+        for doc_id in body.document_ids:
+            drow = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            if drow is None:
+                raise HTTPException(
+                    status_code=404, detail={"code": "not_found", "message": f"Unknown document: {doc_id}"}
+                )
+            if drow["status"] != "ready":
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "document_not_ready", "message": f"Document not ready: {doc_id}"},
+                )
+        busy = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE state IN ('queued', 'running')"
+        ).fetchone()
+        if int(busy["n"]) > 0:
+            raise HTTPException(status_code=409, detail={"code": "busy", "message": "Another job is active"})
+        if not settings.key_present:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "missing_key",
+                    "message": "Add a Gemini API key to the backend environment, then restart.",
+                },
+            )
+        snapshot = _search_pages_snapshot(conn, body.document_ids)
+        if not snapshot:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "no_pages", "message": "Selected documents have no pages"},
+            )
+        job_id = create_job(conn, "search", len(snapshot))
+        search_id = db.new_id("search")
+        import time as _time
+
+        conn.execute(
+            "INSERT INTO searches (id, job_id, question, page_snapshot_json, model_id, "
+            "prompt_version, outcome, checked_pages, total_pages, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                search_id,
+                job_id,
+                question,
+                json.dumps(snapshot),
+                settings.model,
+                db.PROMPT_VERSION,
+                "incomplete",
+                0,
+                len(snapshot),
+                _time.time(),
+            ),
+        )
+        conn.commit()
+        # Resolve absolute raster paths for the engine.
+        pages = []
+        for entry in snapshot:
+            prow = conn.execute("SELECT * FROM pages WHERE id = ?", (entry["page_id"],)).fetchone()
+            data_dir = settings.data_dir
+            pages.append(
+                {
+                    "page_id": entry["page_id"],
+                    "document_id": entry["document_id"],
+                    "raster_sha256": entry["raster_sha256"],
+                    "canonical_path": str(data_dir / "pages" / entry["page_id"] / "canonical.png"),
+                    "model_image_path": str(data_dir / "pages" / entry["page_id"] / "model.png"),
+                }
+            )
+            _ = prow
+        if body.force_refresh:
+            conn.execute(
+                "DELETE FROM page_checks WHERE page_id IN "
+                "(SELECT value FROM json_each(?))",
+                (json.dumps([p["page_id"] for p in pages]),),
+            )
+            conn.commit()
+        try:
+            search_engine.run_search(
+                conn, settings, search_id=search_id, job_id=job_id,
+                question=question, pages=pages,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            set_job_state(conn, job_id, "failed", error_code="search_failed")
+            raise HTTPException(
+                status_code=500,
+                detail={"code": "search_failed", "message": f"Search failed: {e}"},
+            )
+        return SearchCreated(search_id=search_id, job_id=job_id)
+    finally:
+        conn.close()
+
+
+@app.get("/api/searches")
+def list_searches() -> dict:
+    settings = get_settings()
+    conn = db.get_connection(settings.data_dir)
+    try:
+        rows = conn.execute("SELECT * FROM searches ORDER BY created_at DESC LIMIT 50").fetchall()
+        return {
+            "searches": [
+                {
+                    "id": r["id"],
+                    "job_id": r["job_id"],
+                    "question": r["question"],
+                    "outcome": r["outcome"],
+                    "checked_pages": int(r["checked_pages"]),
+                    "total_pages": int(r["total_pages"]),
+                    "model_id": r["model_id"],
+                }
+                for r in rows
+            ]
+        }
+    finally:
+        conn.close()
+
+
+@app.get("/api/searches/{search_id}", response_model=SearchResponse)
+def get_search(search_id: str) -> SearchResponse:
+    settings = get_settings()
+    conn = db.get_connection(settings.data_dir)
+    try:
+        return _search_response(conn, search_id)
+    finally:
+        conn.close()
+
+
+@app.get("/api/jobs/{job_id}", response_model=JobResponse)
+def get_job(job_id: str) -> JobResponse:
+    settings = get_settings()
+    conn = db.get_connection(settings.data_dir)
+    try:
+        return _job_response(conn, job_id)
+    finally:
+        conn.close()
+
+
+@app.post("/api/jobs/{job_id}/cancel", response_model=JobResponse)
+def cancel_job(job_id: str) -> JobResponse:
+    import time as _time
+
+    settings = get_settings()
+    conn = db.get_connection(settings.data_dir)
+    try:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Unknown job"})
+        conn.execute(
+            "UPDATE jobs SET cancel_requested = 1, updated_at = ? WHERE id = ?",
+            (_time.time(), job_id),
+        )
+        conn.commit()
+        return _job_response(conn, job_id)
     finally:
         conn.close()

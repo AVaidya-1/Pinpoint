@@ -1,4 +1,4 @@
-# Durable provider cooldowns. No billing changes or model substitutions.
+# Durable provider cooldowns. Only the owner-authorized Foreman quota fallback is allowed.
 function Get-UsageProvider {
     param([string]$Role)
     $model = ''
@@ -7,6 +7,8 @@ function Get-UsageProvider {
     if (-not $model) {
         try { $model = [string](Get-TeamConfig).models.$Role } catch { $model = '' }
     }
+    if ($model -match '^gpt-') { return 'openai' }
+    if ($model -match '^claude-') { return 'anthropic' }
     if ($model -match '^opencode/') { return 'opencode' }
     switch ($Role) {
         'Foreman1' { return 'anthropic' }
@@ -149,4 +151,23 @@ function Clear-UsageCooldown {
     param([string]$Role)
     $path = Join-Path $OvernightDir ('usage-' + (Get-UsageProvider $Role) + '.json')
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
+}
+
+function Resolve-ForemanRoute {
+    # Foreman1 is the stable persisted role ID, not an extra agent.
+    $primary = [string](Get-TeamConfig).models.Foreman1
+    $fallback = [string](Get-TeamConfig).models.ForemanFallback
+    $record = Read-UsageCooldown 'Foreman1'
+    $limited = $false
+    if ($record) {
+        $now = [datetimeoffset]::UtcNow
+        if ($record.reset_source -eq 'provider reported' -and $record.retry_at) {
+            $limited = [datetimeoffset]$record.retry_at -gt $now
+        }
+        elseif ($record.PSObject.Properties['next_check_at'] -and $record.next_check_at) {
+            $limited = [datetimeoffset]$record.next_check_at -gt $now
+        }
+    }
+    if ($limited) { return @{Model=$fallback; Effort='high'; UsageRole='ForemanFallback'} }
+    return @{Model=$primary; Effort='medium'; UsageRole='Foreman1'}
 }
