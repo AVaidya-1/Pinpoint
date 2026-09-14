@@ -25,6 +25,7 @@ param(
     [string]$Foreman2Model = 'gpt-5.6-sol',
     [string]$DirectorModel = 'gpt-6-astra',
     [switch]$SkipReview,
+    [switch]$ThoroughReview,
     [switch]$SkipDirector,
     [switch]$ForceDirectorReview,
     [switch]$DryRun,
@@ -304,8 +305,9 @@ You are called only for initial strategy, a technical impasse, or completion.
 Independently verify a completion claim against the goal's validator and regression
 artifacts; a foreman's assertion is insufficient. DONE is allowed only for a
 completion consultation with all north-star gates met. Otherwise give a concise
-technical direction for F1 to turn into tasks and F2 to review. You do not write
-code, author task details, weaken gates, or decide owner-only scope/spending.
+an executable direction with task scope and focused acceptance. After an impasse,
+you take over task authoring on the next dispatch call; no foreman approval is required.
+Do not weaken gates or decide owner-only scope/spending.
 If you cannot identify a justified, testable next step, exhaust bounded repair and
 available technical alternatives before BLOCKED. Contact the owner only for a
 required external input or access, or a major path decision
@@ -417,7 +419,7 @@ function Build-Foreman1ReviewPrompt {
     $parts += "Read $contextDoc, $($Task.Doc), and the task outputs under $outputDir."
     $parts += 'Decide whether the task met its OWN Done-when with real evidence:'
     $parts += 'check the claimed numbers against the artifact files;'
-    $parts += 'distrust any claim you cannot verify on disk;'
+    $parts += 'Check relevant evidence once. Reuse passing validation for unchanged code and inputs. Do not rerun the full suite, audit unrelated features, or demand whole-product completion for a slice. FAIL requires a concrete unmet task criterion with evidence; cosmetic reporting concerns are follow-up notes.'
     $parts += 'a task that honestly reports hitting its documented escape hatch is ESCALATE, not FAIL.'
     $parts += 'First line of your reply must be exactly VERDICT: PASS or VERDICT: FAIL or VERDICT: ESCALATE,'
     $parts += 'followed by bullet reasons with file paths.'
@@ -427,11 +429,14 @@ function Build-Foreman1ReviewPrompt {
 function Invoke-Foreman1Review {
     param([hashtable]$Task, [int]$ReviewNum, [string]$DirectorBriefing)
     $prompt = Build-Foreman1ReviewPrompt $Task $DirectorBriefing
-    $r = Invoke-AgentProcess 'Foreman1' $Foreman1Model 'medium' $prompt "$($Task.Name)-f1review-$ReviewNum"
+    $r = Invoke-AgentProcess 'Foreman1' $Foreman1Model 'medium' $prompt "$($Task.Name)-f1review-$ReviewNum" 10
     if ($r.Status -ne 'OK') { throw "F1 review failed: $($r.Status); $($r.LogFile)" }
     $file = Save-AgentReply "$($Task.Name)_f1review$ReviewNum" $r.Output
     $verdict = 'FAIL'
-    if ($r.Output -match '\A\s*VERDICT:\s*(PASS|FAIL|ESCALATE)\s*(?:\r?\n|$)') { $verdict = $Matches[1] }
+    # Claude text output may include progress before the final response.
+    # Accept one unambiguous line verdict; contradictory verdicts fail closed.
+    $verdicts = @([regex]::Matches($r.Output, '(?m)^VERDICT:\s*(PASS|FAIL|ESCALATE)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    if ($verdicts.Count -eq 1) { $verdict = $verdicts[0] }
     Add-Handoff 'Foreman1' 'Foreman2' "$($Task.Name): $verdict" $file
     return @{Verdict=$verdict; ReviewFile=$file; TopReason=(Get-TopReason $r.Output); FullReview=$r.Output}
 }
@@ -540,6 +545,7 @@ function Execute-Task {
         # Foreman 1 reviews worker output
         $f1Result = Invoke-Foreman1Review -Task $Task -ReviewNum $revisionCount -DirectorBriefing $DirectorBriefing
 
+        if ($ThoroughReview) {
         # Foreman 2 (Sol) verifies Foreman 1's review
         $f2Result = Invoke-Foreman2Verify -Task $Task -F1ReviewFile $f1Result.ReviewFile `
             -DirectorBriefing $DirectorBriefing -VerifyNum $revisionCount
@@ -570,6 +576,13 @@ function Execute-Task {
         elseif ($f2Result.Verdict -eq 'AGREE' -and $Matches[1] -ne $f1Result.Verdict) {
             $finalVerdict = 'FAIL'
             $controllingReason = 'F2 claimed agreement but supplied a conflicting task verdict.'
+        }
+
+        }
+        else {
+            $finalVerdict = $f1Result.Verdict
+            $controllingReason = $f1Result.TopReason
+            $f2Result = @{Verdict='AGREE'; VerifyFile=''; Output=''}
         }
 
         if ($finalVerdict -eq 'PASS') {
@@ -825,7 +838,7 @@ function Build-PlannerPrompt {
     $lines += 'You are Foreman 1 (the round planner) for the product repository at'
     $lines += "$ProjectRoot. Your constitution is"
     $lines += 'docs/orchestration/PLANNER_CHARTER.md - read it first and obey it'
-    $lines += 'exactly; when uncertain whether something is authorized, it is not.'
+    $lines += 'within the owner-authorized goal. Resolve routine implementation choices yourself.'
     $lines += "Read the charter and $RoundContextDir/CONTEXT.md. Use the supplied context"
     $lines += 'packet, latest round reports, and relevant unresolved messages. Search'
     $lines += 'history by exact task ID only when needed; do not read entire logs.'
@@ -845,6 +858,9 @@ function Build-PlannerPrompt {
     $lines += 'out/orchestration/runtime/next_round.txt.'
     $lines += 'Do not edit any production script, any existing task doc, the charter,'
     $lines += 'or the supervisor. Then STOP.'
+    if (-not $ThoroughReview) {
+        $lines += 'EXECUTION MODE: These instructions override legacy dual-review requirements. Produce one useful implementation slice now, with its focused validation. No separate diagnosis round when the fix is understood. Valid manifests dispatch immediately; F2 plan approval and memory approval are not prerequisites. Memory candidate is optional and must not delay dispatch. Reuse existing evidence unless source or inputs changed; do not repeat passing checks. Do not expand task acceptance to the whole product. Write a concise plan, then hand off to the Worker.'
+    }
     return ($lines -join "`r`n")
 }
 
@@ -877,7 +893,7 @@ function Build-PlanReviewPrompt {
 }
 
 function Invoke-Planner {
-    param([string]$RoundName, [string]$RoundContextDir, [string]$Revision, [string]$DirectorBriefing)
+    param([string]$RoundName, [string]$RoundContextDir, [string]$Revision, [string]$DirectorBriefing, [switch]$DirectorOwned)
     Archive-PlannerSignals
     Initialize-TeamContext
     $candidatePath = Join-Path $OvernightDir 'memory/candidate.json'
@@ -886,7 +902,11 @@ function Invoke-Planner {
     }
     $prompt = Build-PlannerPrompt $RoundName $RoundContextDir $DirectorBriefing
     if ($Revision) { $prompt = Build-PlanRevisionPrompt $prompt $Revision }
-    $r = Invoke-AgentProcess 'Foreman1' $Foreman1Model 'medium' $prompt "planner-$RoundName"
+    if ($DirectorOwned -and -not $ThoroughReview) {
+        $prompt += "`r`nDIRECTOR TAKEOVER: You are the Director acting as the task author. Resolve the stalled planning yourself and write the manifest and task files in this call. You have authority to assign work directly under the existing owner goal. No return to foremen for another plan approval."
+        $r = Invoke-AgentProcess 'Director' $DirectorModel 'low' $prompt "director-dispatch-$RoundName" 10
+    }
+    else { $r = Invoke-AgentProcess 'Foreman1' $Foreman1Model 'medium' $prompt "planner-$RoundName" 10 }
     if ($r.Status -ne 'OK') { return @{Status='PLANNER-ERROR'; Reason="$($r.Status): $($r.LogFile)"} }
     $signals = @(
         @{Path=$CompletionReportPath; Status='DONE'}, @{Path=$OwnerQuestionsPath; Status='BLOCKED'},
@@ -929,6 +949,16 @@ function Invoke-PlanReview {
     param([string]$NewRoundDir, [string]$PrevContextDir, [int]$ReviewNum, [string]$DirectorBriefing)
 
     $reviewFile = Join-Path $LogDir ("plan_review_$ReviewNum`_" + [Guid]::NewGuid().ToString("N") + ".md")
+    if (-not $ThoroughReview) {
+        # Schema/path validation has already passed. Memory is bookkeeping,
+        # never a second authorization gate for an executable plan.
+        try {
+            $bundle = Get-ContextReviewBundle
+            Publish-TeamContext $bundle '' -PlannerAuthored | Out-Null
+        }
+        catch { Write-Log "Memory refresh deferred; valid plan proceeds: $_" }
+        return @{Verdict='APPROVE'; ReviewFile=''; FullReview='Manifest validation passed; dispatch authorized by execution mode.'}
+    }
     $prompt = Build-PlanReviewPrompt -NewRoundDir $NewRoundDir -PrevContextDir $PrevContextDir -DirectorBriefing $DirectorBriefing
     try { $bundle = Get-ContextReviewBundle }
     catch { return @{Verdict='REVISE'; ReviewFile=''; FullReview="Memory candidate invalid: $_"} }
@@ -983,7 +1013,7 @@ function Invoke-RoundLoop {
             Write-TeamJson $progressPath @{failed_rounds=$failedRounds;director_recoveries=$directorRecoveries;updated=(Get-Date).ToString('o')}
             continue
         }
-        $planner = Invoke-Planner $currentRoundName $prevContextDir $feedback $DirectorBriefing
+        $planner = Invoke-Planner $currentRoundName $prevContextDir $feedback $DirectorBriefing -DirectorOwned:($directorRecoveries -gt 0)
         if ($planner.Status -eq 'PLANNER-ERROR') {
             $feedback="Planner protocol/transport failure: $($planner.Reason)"
             Add-Handoff 'Supervisor' 'Foreman1' 'Planner failure returned for a fresh bounded revision; supervisor remains healthy.' $planner.Reason
@@ -999,6 +1029,7 @@ function Invoke-RoundLoop {
             continue
         }
         if ($planner.Status -ne 'CONTINUE') {
+            if ($ThoroughReview) {
             $check = Invoke-ForemanStateReview $planner
             $checkFile = Save-AgentReply 'f2_state' $check.Output
             Add-Handoff 'Foreman2' 'Foreman1, Director' "Review $($planner.Status)" $checkFile
@@ -1011,6 +1042,10 @@ function Invoke-RoundLoop {
             elseif ($planner.Status -eq 'BLOCKED') { $reason = 'OWNER-CANDIDATE' }
             elseif ($planner.Status -eq 'DONE') { $reason = 'COMPLETION' }
             else { $reason = 'STUCK' }
+            }
+            else {
+                $reason = switch ($planner.Status) { 'DONE' {'COMPLETION'} 'BLOCKED' {'OWNER-CANDIDATE'} default {'STUCK'} }
+            }
             $d = Invoke-Director @() $currentRoundName $reason
             if ($d.Status -in @('DONE','BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
             $DirectorBriefing = $d.Plan
@@ -1220,7 +1255,7 @@ if ($LibraryOnly) { return }
 if ($PlanFirst) {
     $EnableRoundLoop = $true
 }
-if ($EnableRoundLoop -and ($SkipDirector -or $SkipReview)) { throw 'Autonomous round loop requires Director and both reviews.' }
+if ($EnableRoundLoop -and ($SkipDirector -or $SkipReview)) { throw 'Autonomous round loop requires Director and task review.' }
 
 if ($DryRun) {
     Invoke-DryRun

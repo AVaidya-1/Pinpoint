@@ -1,7 +1,7 @@
 # No live models or product runs. Execute with Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly
+. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly -ThoroughReview
 $testRoot = Join-Path $repo ('out/orchestration_tests/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 $OvernightDir = $testRoot

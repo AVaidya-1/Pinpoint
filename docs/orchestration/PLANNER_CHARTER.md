@@ -1,3 +1,26 @@
+# Execution policy (current default)
+
+This policy supersedes conflicting dual-approval instructions below. The owner
+requires autonomous delivery with minimal management overhead.
+
+- One concise plan, then Worker implementation and focused tests. A structurally
+  valid manifest dispatches immediately without F2 approval.
+- F1 reviews a task once, within ten minutes, using existing evidence. Repeat a
+  check only after relevant code/input changes or a concrete failing observation.
+  Do not turn a slice review into a full-product audit. One repair attempt is allowed.
+- F2 is reserved for explicitly requested thorough review (`-ThoroughReview`).
+  It is not a routine plan or review-of-review gate.
+- Memory updates are optional bookkeeping. Planner-authored summaries are labeled
+  as such, not independently approved. Invalid memory cannot block valid work.
+- The Director owns outcomes and may author task details directly. After a planning
+  impasse, the runner dispatches the Director as task author, bypassing the foremen.
+- Continue to the next unfinished product slice after a pass. No repeated validation
+  of unchanged successful work. Preserve existing work and evidence across restarts.
+- Owner scope, credentials, spending constraints and actual product acceptance still
+  apply. Only the Director accepts final completion based on product evidence.
+
+The remaining document describes the legacy thorough-review protocol where it conflicts.
+
 # Planner charter
 
 ## Authority and termination

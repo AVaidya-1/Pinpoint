@@ -84,7 +84,10 @@ switch ($Action) {
         & git -C (Split-Path $PSScriptRoot -Parent) status --porcelain --untracked-files=normal | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Git check failed. Repair Git before starting.' }
         $changes=@(& git -C (Split-Path $PSScriptRoot -Parent) status --porcelain --untracked-files=normal)
-        if ($changes.Count) { throw 'Uncommitted project changes remain. Save/review them before autonomous work. Nothing started.' }
+        if ($changes.Count) {
+            & (Join-Path (Split-Path $PSScriptRoot -Parent) '.venv/Scripts/python.exe') (Join-Path $PSScriptRoot 'team_git.py') checkpoint --label 'Preserved work before autonomous resume'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not preserve the existing work; see the specific Git checkpoint error.' }
+        }
         Clear-DirectorPause
         $runtimePath=Join-Path $OvernightDir 'runtime.json'
         $runtime=$null

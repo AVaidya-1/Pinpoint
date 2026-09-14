@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly
+. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly -ThoroughReview
 
 $OvernightDir=Join-Path $repo ('out/context_tests/' + [Guid]::NewGuid().ToString('N'))
 $LogDir=Join-Path $OvernightDir 'logs'

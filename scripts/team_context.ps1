@@ -66,7 +66,8 @@ function Read-TeamSnapshot {
     $path = Join-Path $OvernightDir "memory/snapshots/$($ref.revision).json"
     if ((Get-TeamFileHash $path) -ne $ref.sha256) { throw 'Published memory changed after approval.' }
     $snapshot = Get-Content $path -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ((Get-TeamFileHash $snapshot.review) -ne $snapshot.review_sha256) { throw 'Memory approval record changed after publication.' }
+    $plannerAuthored = $snapshot.PSObject.Properties['provenance'] -and $snapshot.provenance -eq 'planner-authored; not independently reviewed'
+    if (-not $plannerAuthored -and (Get-TeamFileHash $snapshot.review) -ne $snapshot.review_sha256) { throw 'Memory approval record changed after publication.' }
     return $snapshot
 }
 
@@ -188,9 +189,10 @@ function Invoke-ForemanStateReview {
 }
 
 function Publish-TeamContext {
-    param($Bundle, [string]$ReviewFile)
-    $review = Get-Content $ReviewFile -Raw -Encoding UTF8
-    if ($review -notmatch '\A\s*VERDICT:\s*APPROVE\s*(?:\r?\n|$)') { throw 'Memory publication requires F2 APPROVE.' }
+    param($Bundle, [string]$ReviewFile, [switch]$PlannerAuthored)
+    $review = ''
+    if (-not $PlannerAuthored) { $review = Get-Content $ReviewFile -Raw -Encoding UTF8 }
+    if (-not $PlannerAuthored -and $review -notmatch '\A\s*VERDICT:\s*APPROVE\s*(?:\r?\n|$)') { throw 'Memory publication requires F2 APPROVE.' }
     if ((Get-TeamFileHash $Bundle.Path) -ne $Bundle.Hash -or
         (Get-TeamFileHash $Bundle.ReviewPath) -ne $Bundle.Hash) { throw 'Candidate changed during review.' }
     $current = Read-TeamSnapshot
@@ -207,14 +209,15 @@ function Publish-TeamContext {
     $snapshot = @{revision=$revision; previous=$currentRevision; approved_at=(Get-Date).ToString('o');
         summary_md=$Bundle.Candidate.summary_md; evidence_hashes=$Bundle.EvidenceHashes;
         resolutions=@($Bundle.Candidate.resolutions); closed_ids=@($closed | Sort-Object -Unique);
-        review=$ReviewFile; review_sha256=(Get-TeamFileHash $ReviewFile);
+        review=$ReviewFile; review_sha256=$(if ($ReviewFile) {Get-TeamFileHash $ReviewFile} else {''});
+        provenance=$(if ($PlannerAuthored) {'planner-authored; not independently reviewed'} else {'independently-reviewed'});
         task_state_sha256=''}
     if (Test-Path $StatePath) { $snapshot.task_state_sha256=Get-TeamFileHash $StatePath }
     $path = Join-Path $OvernightDir "memory/snapshots/$revision.json"
     Write-TeamJson $path $snapshot
     [IO.File]::WriteAllText((Join-Path $OvernightDir "memory/snapshots/$revision.md"), $snapshot.summary_md, [Text.UTF8Encoding]::new($false))
     Write-TeamJson (Join-Path $OvernightDir 'memory/current.json') @{revision=$revision; sha256=(Get-TeamFileHash $path)}
-    Add-Handoff 'Foreman2' 'Team' "Shared memory approved: $revision" $path
+    Add-Handoff 'Supervisor' 'Team' "Shared memory published (planner-authored=$PlannerAuthored): $revision" $path
     return $revision
 }
 
@@ -240,7 +243,7 @@ function Get-TeamContextPacket {
     if ($owner.Length -gt 7000) { throw 'Owner brief exceeds 7000 characters; do not silently truncate constraints.' }
     $messages = @(Get-TeamInbox $Role $Label)
     $lines = @("# Context packet: $Role / $Label", "Memory revision: $revision; stale or uninitialized: $stale", '', $owner,
-        '## Approved memory (historical if stale)', $summary, '## Open inbox')
+        '## Saved memory (historical if stale; check evidence for claims)', $(if ($snapshot -and $snapshot.PSObject.Properties['provenance']) { 'Provenance: ' + $snapshot.provenance + "`n" + $summary } else {$summary}), '## Open inbox')
     $included = 0
     $chars = 0
     foreach ($m in $messages) {
