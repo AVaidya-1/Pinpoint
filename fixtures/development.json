@@ -1,0 +1,192 @@
+[
+  {
+    "fixture_id": "dev_p1",
+    "fixture_file": "fixtures/generated/test_pages.pdf",
+    "page_index": 0,
+    "signature_rgb": [
+      255,
+      0,
+      0
+    ],
+    "target": [
+      0.11111,
+      0.18687,
+      0.88889,
+      0.21212
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "spec_table"
+  },
+  {
+    "fixture_id": "dev_p2",
+    "fixture_file": "fixtures/generated/test_pages.pdf",
+    "page_index": 1,
+    "signature_rgb": [
+      0,
+      255,
+      0
+    ],
+    "target": [
+      0.31046,
+      0.21717,
+      0.5719,
+      0.39394
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "chart"
+  },
+  {
+    "fixture_id": "dev_p3",
+    "fixture_file": "fixtures/generated/test_pages.pdf",
+    "page_index": 2,
+    "signature_rgb": [
+      0,
+      0,
+      255
+    ],
+    "target": [
+      0.4085,
+      0.36842,
+      0.5915,
+      0.48971
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "flowchart"
+  },
+  {
+    "fixture_id": "dev_p4",
+    "fixture_file": "fixtures/generated/test_pages.pdf",
+    "page_index": 3,
+    "signature_rgb": [
+      255,
+      255,
+      0
+    ],
+    "target": [
+      0.1732,
+      0.29924,
+      0.25163,
+      0.34722
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "schematic"
+  },
+  {
+    "fixture_id": "dev_p5",
+    "fixture_file": "fixtures/generated/test_pages.pdf",
+    "page_index": 4,
+    "signature_rgb": [
+      255,
+      0,
+      255
+    ],
+    "target": [
+      0.2451,
+      0.2803,
+      0.53922,
+      0.43182
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "shapes"
+  },
+  {
+    "fixture_id": "orientation_portrait",
+    "fixture_file": "fixtures/generated/portrait.pdf",
+    "page_index": 0,
+    "signature_rgb": [
+      128,
+      128,
+      0
+    ],
+    "target": [
+      0.2451,
+      0.31818,
+      0.5719,
+      0.49495
+    ],
+    "raster_width_px": 2319,
+    "raster_height_px": 3000,
+    "content": "orientation_portrait"
+  },
+  {
+    "fixture_id": "orientation_landscape",
+    "fixture_file": "fixtures/generated/landscape.pdf",
+    "page_index": 0,
+    "signature_rgb": [
+      0,
+      128,
+      128
+    ],
+    "target": [
+      0.375,
+      0.24019,
+      0.55933,
+      0.60931
+    ],
+    "raster_width_px": 3000,
+    "raster_height_px": 2319,
+    "content": "orientation_landscape"
+  },
+  {
+    "fixture_id": "orientation_cropbox",
+    "fixture_file": "fixtures/generated/cropbox.pdf",
+    "page_index": 0,
+    "signature_rgb": [
+      128,
+      0,
+      128
+    ],
+    "target": [
+      0.23563,
+      0.31933,
+      0.61398,
+      0.49833
+    ],
+    "raster_width_px": 2088,
+    "raster_height_px": 3000,
+    "content": "orientation_cropbox"
+  },
+  {
+    "fixture_id": "orientation_exif_jpeg",
+    "fixture_file": "fixtures/generated/exif_oriented.jpg",
+    "page_index": 0,
+    "signature_rgb": [
+      255,
+      128,
+      0
+    ],
+    "target": [
+      0.25,
+      0.27778,
+      0.58333,
+      0.61111
+    ],
+    "raster_width_px": 1200,
+    "raster_height_px": 900,
+    "content": "orientation_exif_jpeg"
+  },
+  {
+    "fixture_id": "orientation_standard_png",
+    "fixture_file": "fixtures/generated/standard.png",
+    "page_index": 0,
+    "signature_rgb": [
+      0,
+      0,
+      128
+    ],
+    "target": [
+      0.25,
+      0.3,
+      0.64286,
+      0.65
+    ],
+    "raster_width_px": 1400,
+    "raster_height_px": 1000,
+    "content": "orientation_standard_png"
+  }
+]
