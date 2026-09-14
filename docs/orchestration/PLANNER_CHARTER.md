@@ -37,21 +37,12 @@ problems while persisted OpenAI quota proves Director unavailable. Use
 scripts/foreman1_hold.ps1, never forge a Director pause or terminal record.
 
 
-## Visual Evidence P0 execution contract
+## Visual Evidence P0
 Read docs/product/PRODUCT_BRIEF.md in full. Its fixed A1-A12 software checks and
 20-question holdout thresholds control completion. No generated answer text.
-Use React/TypeScript/Vite, react-zoom-pan-pinch, Python 3.12/FastAPI,
-pypdfium2/Pillow, SQLite/files, official google-genai and preflight-selected Gemma.
 No P1 integrations, deployment, paid fallback, pushes or external notifications.
-Budget 480 minutes: preflight/contracts 30; import/viewer 75; model/search 100;
-states/errors 65; verification/handoff 80; independent reviews 90; repair 40.
-This is an allocation, not an enforced wall-clock deadline. Use supported pause.
-Plan bounded serial tasks starting with IMPORT_VIEWER_SLICE. Establish a real
-model rectangle early, then source-only search, failure/persistence behavior,
-browser and frozen live evaluation, and APP_README.md handoff.
 Track mocked software evidence separately from real provider evidence. Do not
 prepopulate PASS reports, tune on holdout truth or weaken quality thresholds.
 If a required preflight is unavailable, record the exact dependency; do not
 spend the build budget fabricating a successful visual demo.
-Product utilities live under app_tools/, and backend environment in backend/.venv.
 Generated fixtures/data/logs go to ignored paths; track generators and JSON truth.

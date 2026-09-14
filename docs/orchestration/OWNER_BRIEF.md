@@ -21,9 +21,7 @@ No paid fallback, credit purchase, subscription change or silent model switch.
 Use public/self-created documents for hosted-model testing. Keep credentials
 out of prompts, source, reports and screenshots.
 
-Target about eight hours including reviews and verification. Prioritize the
-real upload/question/source-highlight path. The runtime does not provide a
-guaranteed eight-hour wall-clock stop; use its supported safe pause process.
+Prioritize the real upload/question/source-highlight path.
 Do not start optional retrieval, parser or local-model integrations during P0.
 
 Resolve routine technical choices within scope. Ask the owner only for required
@@ -39,5 +37,5 @@ Product checkout: C:/Users/vaidy/Documents/Pinpoint/visual-evidence.
 Product origin: C:/Users/vaidy/Documents/Pinpoint/visual-evidence-remote.git (local).
 OpenRouter API key is available as a free-tier alternative to the Gemini API for
 Gemma 4 inference (model: google/gemma-4-31b-it:free). GEMINI_API_KEY is also
-present. The application provider module should support both endpoints.
+present. Both are free tier.
 Before dispatch require successful live role smoke/pilot checks and Gemma image preflight.

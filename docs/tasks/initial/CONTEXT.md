@@ -1,27 +1,24 @@
-# Initial context: Visual Evidence
+# Initial context: Pinpoint
 
-Authoritative inputs: docs/product/PRODUCT_BRIEF.md and SETUP_HANDOFF.md.
+Authoritative specification: docs/product/PRODUCT_BRIEF.md.
 Product path: C:/Users/vaidy/Documents/Pinpoint/visual-evidence.
-Framework source remains separate at ../agent-orchestration-system.
-New adoption has no prior approvals, reviewed memory, tasks or app implementation.
-Windows PowerShell 5.1 and Python 3.14 are installed for orchestration.
-Python 3.12 and uv are not yet installed. Node/npm and all three coding CLIs exist.
-Inherited role model IDs remain explicit in orchestration.json; availability
-requires live smoke tests and pilot. No provider/model substitutions authorized.
+Framework source: ../agent-orchestration-system.
+
+No application code exists yet. No prior tasks, approvals or reviewed memory.
+
+Windows PowerShell 5.1 and Python 3.14 installed for orchestration.
+uv installed at C:\Users\vaidy\.local\bin\uv. Node v24.14.1 available.
+All three coding CLIs (codex, claude, opencode) authenticated and smoke-tested.
+
 Product origin: C:/Users/vaidy/Documents/Pinpoint/visual-evidence-remote.git (local).
-GEMINI_API_KEY is present in .env. OPENROUTER_KEY is also present for
-google/gemma-4-31b-it:free via OpenRouter (https://openrouter.ai/api/v1).
-Planned model gemma-4-31b-it. The application provider module should attempt
-the Gemini API first and fall back to OpenRouter if unavailable.
-Image/geometry/schema preflight remains unverified and must run before search work.
-Capacity: 20 pages across five documents, 25 MB/upload, 20 MP/image, one job.
+GEMINI_API_KEY and OPENROUTER_KEY are both present in .env (gitignored).
+Both provide free access to gemma-4-31b-it.
+OpenRouter free-tier rate limits for gemma-4-31b-it: 30 requests/minute,
+16k input tokens/minute, 14,400 requests/day max.
+
 Real test PDFs are at fixtures/documents/ (gitignored large binaries).
-Read fixtures/documents/Testing documents readme.md for the full test plan:
-5 documents (Raspberry Pi Pico datasheet, TI NE555 timer, Lippert electric step
-diagnostics flowchart, Prusa MK3S+ handbook, FAA Pilot's Handbook excerpt) with
-specific page ranges, sample questions and expected evidence targets per document.
-Use these for live evaluation. Also generate synthetic fixtures under
-fixtures/generated/ with known coordinates for deterministic geometry tests.
-uv is installed at C:\Users\vaidy\.local\bin\uv. All smoke tests passed.
-Exact geometry, state, API and evaluation contracts are in the product brief.
-No reports or passing gates have been created. See out/setup for setup evidence.
+Read fixtures/documents/Testing documents readme.md for the test plan:
+5 documents with specific questions and expected evidence targets.
+
+No preflight has been run against either model API.
+No reports or passing gates have been created.
