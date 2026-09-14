@@ -102,7 +102,24 @@ switch ($Action) {
                 # A production resume has no wall-clock stop. Individual agent calls
                 # remain bounded; the supervisor exits only for the owner's pause,
                 # verified completion, an owner-only blocker, or exhausted recovery.
-                & (Join-Path $PSScriptRoot 'run_team.ps1') -PlanFirst -MaxRounds 0 -MaxHours 0
+                $executionPath=Join-Path $OvernightDir 'resume-execution.json'
+                if (Test-Path -LiteralPath $executionPath) {
+                    $execution=Get-Content -LiteralPath $executionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                    if ($execution.mode -ne 'execute-existing-plan') { throw 'Unsupported resume execution mode.' }
+                    $manifest=[string]$execution.manifest
+                    if ($manifest -notmatch '^docs/tasks/round-[0-9]+/manifest\.json$') { throw 'Resume manifest path is not an approved round manifest.' }
+                    $manifestPath=[IO.Path]::GetFullPath((Join-Path (Split-Path $PSScriptRoot -Parent) $manifest))
+                    $projectPath=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
+                    if (-not $manifestPath.StartsWith($projectPath + [IO.Path]::DirectorySeparatorChar) -or -not (Test-Path -LiteralPath $manifestPath)) { throw 'Resume manifest is missing or outside the project.' }
+                    $maxRounds=[int]$execution.max_rounds
+                    if ($maxRounds -lt 1 -or $maxRounds -gt 3) { throw 'Resume follow-up round count must be between 1 and 3.' }
+                    $archive=Join-Path $OvernightDir ("logs/resume-execution-" + (Get-Date -Format 'yyyyMMddHHmmssfff') + '.json')
+                    Move-Item -LiteralPath $executionPath -Destination $archive
+                    & (Join-Path $PSScriptRoot 'run_team.ps1') -Manifest $manifest -EnableRoundLoop -MaxRounds $maxRounds -MaxHours 0 -ForceDirectorReview
+                }
+                else {
+                    & (Join-Path $PSScriptRoot 'run_team.ps1') -PlanFirst -MaxRounds 0 -MaxHours 0
+                }
                 $runtime=$null
                 if (Test-Path $runtimePath) { $runtime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json }
                 if ((Test-Foreman1EmergencyHoldAuthorized) -and -not (Test-DirectorPauseAuthorized) -and -not (Test-DirectorTerminalAuthorized)) {

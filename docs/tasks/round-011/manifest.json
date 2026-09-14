@@ -1,0 +1,257 @@
+{
+  "round": "round-011",
+  "tasks": [
+    {
+      "continue_on_fail": false,
+      "doc": "docs/tasks/round-011/TASK_IMPORT_VIEWER_SLICE.md",
+      "gate_files": [
+        "out/orchestration/import-viewer/report.json",
+        "out/orchestration/import-viewer/validation.json",
+        "out/orchestration/import-viewer/dom-bounds.json",
+        "out/orchestration/import-viewer/e2e-evidence.json",
+        "out/orchestration/import-viewer/restart-evidence.json",
+        "out/orchestration/import-viewer/command-results.json",
+        "out/orchestration/import-viewer/verification-receipt.json"
+      ],
+      "name": "IMPORT_VIEWER_SLICE",
+      "timeout_min": 75,
+      "json_gates": [
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/all_pass"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/finalized"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/validation_hash_present"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/final_artifacts_verified"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/no_webserver_key"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/uv_sync_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/npm_ci_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/playwright_install_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/fixture_gen_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/pytest_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/vite_build_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/playwright_exit"
+        },
+        {
+          "expect": 0,
+          "file": "out/orchestration/import-viewer/report.json",
+          "pointer": "/checks/validator_exit"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/validator_pass"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/artifacts_complete"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/command_count_valid"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/command_order_valid"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/no_webserver_key"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/no_spec_lifecycle"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/hash_all_match"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/hash_nonempty"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/alignment_all_pass"
+        },
+        {
+          "expect": 10,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/alignment_total_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/orientation_all_pass"
+        },
+        {
+          "expect": 5,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/orientation_case_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/page_identity_all_pass"
+        },
+        {
+          "expect": 1,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/page_identity_case_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_valid"
+        },
+        {
+          "expect": 20,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_question_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/holdout_split_valid"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/dom_bounds_complete"
+        },
+        {
+          "expect": 10,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/dom_bounds_entry_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/restart_persistence_pass"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/capacity_enforced"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/screenshot_present"
+        },
+        {
+          "expect": 13,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/screenshot_count"
+        },
+        {
+          "expect": 62,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/artifacts_set_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/validation.json",
+          "pointer": "/fixtures_verified"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/all_verified"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/hash_match"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/command_results_match"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/command_count_valid"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/command_order_valid"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/artifacts_all_exist"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/artifacts_set_valid"
+        },
+        {
+          "expect": 62,
+          "file": "out/orchestration/import-viewer/verification-receipt.json",
+          "pointer": "/artifacts_set_count"
+        },
+        {
+          "expect": true,
+          "file": "out/orchestration/import-viewer/restart-evidence.json",
+          "pointer": "/pass"
+        }
+      ]
+    }
+  ]
+}

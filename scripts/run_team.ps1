@@ -26,6 +26,7 @@ param(
     [string]$DirectorModel = 'gpt-6-astra',
     [switch]$SkipReview,
     [switch]$SkipDirector,
+    [switch]$ForceDirectorReview,
     [switch]$DryRun,
     [ValidateRange(0, 8760)][int]$MaxHours = 10,
     [string]$NotifyUrl = '',
@@ -1292,7 +1293,7 @@ try {
     }
     $directorBriefing = ''
     if (Test-Path $DirectorPlanPath) { $directorBriefing = [string](Get-Content $DirectorPlanPath -Raw -Encoding UTF8) }
-    if (-not $SkipDirector -and [string]::IsNullOrWhiteSpace($directorBriefing)) {
+    if (-not $SkipDirector -and ($ForceDirectorReview -or [string]::IsNullOrWhiteSpace($directorBriefing))) {
         $d = Invoke-Director $taskList $roundName 'INITIAL'
         if ($d.Status -ne 'CONTINUE') { $script:TerminalStatus=$d.Status; return }
         $directorBriefing = $d.Plan
