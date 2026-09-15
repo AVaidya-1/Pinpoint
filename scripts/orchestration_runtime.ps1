@@ -86,41 +86,16 @@ function Add-Handoff {
 
 function Get-CommunicationPrompt {
     param([string]$Role, [string]$Label)
-    $packet = Get-TeamContextPacket $Role $Label
-    $foremanHold = ''
-    if ($Role -eq 'Foreman1') {
-        $foremanHold = @"
-Emergency hold authority: if and only if you identify a concrete safety or
-coordinator-integrity problem and the Director is currently unreachable because
-usage-openai.json records an active provider limit, write the reason and evidence
-to a file inside $OvernightDir, then run:
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/foreman1_hold.ps1 -RuntimeDirectory "$OvernightDir" -ReasonFile <absolute-evidence-file>
-This creates a temporary Foreman1 hold, not a terminal stop. Finish your current
-response after invoking it. Do not use it for ordinary technical disagreement,
-your own provider limit, slow work, failed tests, or a substitute for escalation.
-"@
-    }
     return @"
-Read docs/orchestration/AGENT_PROTOCOL.md first. Your explicitly assigned role
-in this request supersedes old default model workflows in CLAUDE.md.
-The supervisor owns Git commits and GitHub pushes. Do not commit, switch branches,
-reset, clean, merge, force-push, or modify Git metadata yourself. Only one writer
-may edit this checkout. Foremen must inspect the complete git diff and untracked
-source files before approving a task; unexpected changes require rejection.
-Use the bounded packet below and read docs/orchestration/CONTEXT_PROTOCOL.md.
-Do not load entire communications, digest, notes or transcript histories.
-Search exact task/message IDs and inspect relevant primary evidence as needed.
-Send questions, answers, findings or decisions with scripts/team_message.ps1
--RuntimeDirectory "$OvernightDir" -From $Role -To <role> -Task <task-id>
--Kind QUESTION|ANSWER|FINDING|DECISION -BodyFile <markdown-file> [-ReplyTo <id>].
-Every unanswered question remains in the inbox across fresh sessions. F1 proposes
-resolutions and memory updates; F2 verifies them. Do not edit published memory,
-old messages or history. Do not spawn
-other models yourself: the supervisor owns role routing and reviews. Report
-concise evidence and decisions, not private chain of thought.
-$foremanHold
-Packet source: $($packet.Path)
-$($packet.Text)
+You are $Role in a simple sequential MVP build. Follow the current assignment.
+Read docs/orchestration/OWNER_BRIEF.md for product constraints.
+The Director supplies the implementation plan; one Foreman writes task Markdown;
+OpenCode executes tasks in order; the Foreman briefly checks every two tasks.
+Opus 4.6 medium is the Foreman, with Sol 5.6 high only on Opus usage limits.
+No nested agents, planning rounds, secondary reviewers, memory approval, or inbox ceremony.
+Preserve completed product work. Report concrete results and honest test evidence.
+Only the supervisor makes Git checkpoints. Do not change Git metadata, policy,
+orchestration scripts, credentials, or acceptance thresholds. Do not send external messages.
 "@
 }
 

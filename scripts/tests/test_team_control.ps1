@@ -24,7 +24,7 @@ $parseErrors=$null
 if ($parseErrors.Count) { throw "ASSERTION FAILED: supervisor repair script does not parse: $($parseErrors[0])" }
 $controlSource=Get-Content (Join-Path $repo 'scripts/team_control.ps1') -Raw
 $repairSource=Get-Content (Join-Path $repo 'scripts/supervisor_repair.ps1') -Raw
-if ($controlSource -notmatch 'supervisor_repair\.ps1' -or $controlSource -notmatch 'DIRECTOR-RECOVERY-WAIT' -or $controlSource -notmatch 'Test-Foreman1EmergencyHoldAuthorized' -or $repairSource -notmatch "Invoke-AgentProcess 'Director'") {
-    throw 'ASSERTION FAILED: resume does not contain persistent automatic Director maintenance recovery'
+if ($controlSource -match 'DIRECTOR-RECOVERY-WAIT' -or $controlSource -match '& .*supervisor_repair' -or $controlSource -notmatch 'run_team.ps1') {
+    throw 'ASSERTION FAILED: resume must run the queue once without recursive Director maintenance'
 }
-Write-Host 'PASS: resume includes a parseable, persistent Director maintenance path.'
+Write-Host 'PASS: resume uses one queue invocation without recurring maintenance.'

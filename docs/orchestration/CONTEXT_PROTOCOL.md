@@ -8,8 +8,8 @@ requires autonomous delivery with minimal management overhead.
 - F1 reviews a task once, within ten minutes, using existing evidence. Repeat a
   check only after relevant code/input changes or a concrete failing observation.
   Do not turn a slice review into a full-product audit. One repair attempt is allowed.
-- F2 is reserved for explicitly requested thorough review (`-ThoroughReview`).
-  It is not a routine plan or review-of-review gate.
+- Exactly one Foreman: Opus 4.6 medium, with Sol 5.6 high taking over only
+  on Opus usage limits. No second review role or thorough-review mode exists.
 - Memory updates are optional bookkeeping. Planner-authored summaries are labeled
   as such, not independently approved. Invalid memory cannot block valid work.
 - The Director owns outcomes and may author task details directly. After a planning
@@ -19,7 +19,7 @@ requires autonomous delivery with minimal management overhead.
 - Owner scope, credentials, spending constraints and actual product acceptance still
   apply. Only the Director accepts final completion based on product evidence.
 
-The remaining document describes the legacy thorough-review protocol where it conflicts.
+The remaining document is historical reference where it conflicts; dual-foreman instructions do not apply.
 
 # Fresh sessions, durable project memory
 

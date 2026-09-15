@@ -5,7 +5,7 @@ $root=Split-Path $PSScriptRoot -Parent
 $output=Join-Path $root 'out/tests'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $failures=@()
-foreach ($name in @('test_team_context.ps1','test_team_notifications.ps1','test_usage_limits.ps1','test_director_console.ps1','test_orchestration.ps1','test_team_control.ps1','test_hard_stops.ps1')) {
+foreach ($name in @('test_simple_queue.ps1','test_foreman_fallback.ps1','test_lean_execution.ps1','test_team_context.ps1','test_team_notifications.ps1','test_usage_limits.ps1','test_director_console.ps1','test_orchestration.ps1','test_team_control.ps1','test_hard_stops.ps1')) {
     $log=Join-Path $output "$name.log"
     $ErrorActionPreference='Continue'
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "tests/$name") *> $log

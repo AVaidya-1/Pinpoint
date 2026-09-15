@@ -89,76 +89,7 @@ switch ($Action) {
             if ($LASTEXITCODE -ne 0) { throw 'Could not preserve the existing work; see the specific Git checkpoint error.' }
         }
         Clear-DirectorPause
-        $runtimePath=Join-Path $OvernightDir 'runtime.json'
-        $runtime=$null
-        if (Test-Path $runtimePath) { $runtime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json }
-        $runSupervisor = -not ($runtime -and $runtime.status -in @('SUPERVISOR-ERROR','REPAIR-ERROR'))
-        $repairAttempt = 0
-        if (-not $runSupervisor -and (Test-Path (Join-Path $OvernightDir 'supervisor-repair.json'))) {
-            $repairRecord=Get-Content (Join-Path $OvernightDir 'supervisor-repair.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($runtime.status -eq 'REPAIR-ERROR' -and $repairRecord.PSObject.Properties['attempt']) {
-                $repairAttempt=[int]$repairRecord.attempt
-            }
-        }
-        while ($true) {
-            if ($runSupervisor) {
-                # A production resume has no wall-clock stop. Individual agent calls
-                # remain bounded; the supervisor exits only for the owner's pause,
-                # verified completion, an owner-only blocker, or exhausted recovery.
-                $executionPath=Join-Path $OvernightDir 'resume-execution.json'
-                if (Test-Path -LiteralPath $executionPath) {
-                    $execution=Get-Content -LiteralPath $executionPath -Raw -Encoding UTF8 | ConvertFrom-Json
-                    if ($execution.mode -ne 'execute-existing-plan') { throw 'Unsupported resume execution mode.' }
-                    $manifest=[string]$execution.manifest
-                    if ($manifest -notmatch '^docs/tasks/round-[0-9]+/manifest\.json$') { throw 'Resume manifest path is not an approved round manifest.' }
-                    $manifestPath=[IO.Path]::GetFullPath((Join-Path (Split-Path $PSScriptRoot -Parent) $manifest))
-                    $projectPath=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
-                    if (-not $manifestPath.StartsWith($projectPath + [IO.Path]::DirectorySeparatorChar) -or -not (Test-Path -LiteralPath $manifestPath)) { throw 'Resume manifest is missing or outside the project.' }
-                    $maxRounds=[int]$execution.max_rounds
-                    if ($maxRounds -lt 1 -or $maxRounds -gt 3) { throw 'Resume follow-up round count must be between 1 and 3.' }
-                    $archive=Join-Path $OvernightDir ("logs/resume-execution-" + (Get-Date -Format 'yyyyMMddHHmmssfff') + '.json')
-                    Move-Item -LiteralPath $executionPath -Destination $archive
-                    & (Join-Path $PSScriptRoot 'run_team.ps1') -Manifest $manifest -EnableRoundLoop -MaxRounds $maxRounds -MaxHours 0 -ForceDirectorReview
-                }
-                else {
-                    & (Join-Path $PSScriptRoot 'run_team.ps1') -PlanFirst -MaxRounds 0 -MaxHours 0
-                }
-                $runtime=$null
-                if (Test-Path $runtimePath) { $runtime=Get-Content $runtimePath -Raw -Encoding UTF8 | ConvertFrom-Json }
-                if ((Test-Foreman1EmergencyHoldAuthorized) -and -not (Test-DirectorPauseAuthorized) -and -not (Test-DirectorTerminalAuthorized)) {
-                    # Restart into a Director-only resolver. A quota-limited
-                    # Director waits in place, then releases or converts the hold.
-                    $runSupervisor=$true
-                    continue
-                }
-                if (-not $runtime -or $runtime.status -ne 'SUPERVISOR-ERROR') { break }
-                $repairAttempt=0
-            }
-            if ($repairAttempt -ge 2) {
-                $reason='Director maintenance retries remain active for the coordinator fault; no worker or supervisor may convert this incident into a project stop.'
-                Write-TeamJson $runtimePath @{status='DIRECTOR-RECOVERY-WAIT';role='Director';action=$reason;log_file='';supervisor_pid=$PID;run_started=(Get-Date).ToString('o');updated=(Get-Date).ToString('o')}
-                for ($wait=0; $wait -lt 60; $wait++) {
-                    if (Test-DirectorPauseAuthorized) { break }
-                    Start-Sleep -Seconds 1
-                }
-                if (Test-DirectorPauseAuthorized) {
-                    Write-TeamJson $runtimePath @{status='STOPPED';role='Director';action='Director honored owner pause during maintenance recovery.';log_file='';supervisor_pid=$PID;run_started=(Get-Date).ToString('o');updated=(Get-Date).ToString('o')}
-                    break
-                }
-                $repairAttempt=0
-                continue
-            }
-            $repairAttempt++
-            Write-Host "Routine supervisor fault detected. Starting Director repair attempt $repairAttempt..."
-            & (Join-Path $PSScriptRoot 'supervisor_repair.ps1') -RuntimeDirectory $OvernightDir -Attempt $repairAttempt
-            if ($LASTEXITCODE -eq 0) {
-                $runSupervisor=$true
-            }
-            else {
-                # A failed repair is still a routine incident until the Director's
-                # second bounded attempt has also failed.
-                $runSupervisor=$false
-            }
-        }
+        # Resume the persisted queue. No planner restart or recursive Director repair.
+        & (Join-Path $PSScriptRoot 'run_team.ps1') -MaxHours 0
     }
 }

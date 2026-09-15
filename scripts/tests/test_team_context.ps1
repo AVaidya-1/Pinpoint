@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly -ThoroughReview
+. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly
 
 $OvernightDir=Join-Path $repo ('out/context_tests/' + [Guid]::NewGuid().ToString('N'))
 $LogDir=Join-Path $OvernightDir 'logs'
@@ -110,21 +110,12 @@ $candidate.summary_md=$summary
 $candidate.resolutions=@()
 Write-TeamJson $candidatePath $candidate
 
-# Real plan-review integration with fake model responses: no live calls.
-function Invoke-Codex {
-    param($Model,$Effort,$Prompt,$Label)
-    if ($Prompt -notmatch 'memory candidate' -or $Prompt -notmatch 'proposed message resolution') { throw 'Review did not include memory responsibilities' }
-    return @{Output="VERDICT: APPROVE`n- Plan and memory checked."}
-}
+# Memory bookkeeping needs no model reviewer.
+function Invoke-Codex { throw 'Second Foreman must not run' }
 $result=Invoke-PlanReview 'docs/tasks/initial' 'docs/tasks/initial' 0 'guide'
-Assert ($result.Verdict -eq 'APPROVE' -and (Read-TeamSnapshot).revision -ne $newRevision) 'Existing F2 plan review also gates memory publication'
+Assert ($result.Verdict -eq 'APPROVE' -and (Read-TeamSnapshot).revision -ne $newRevision) 'Memory publishes without a second Foreman'
+Assert ((Read-TeamSnapshot).provenance -eq 'planner-authored; not independently reviewed') 'Memory provenance is explicit'
 $before=(Read-TeamSnapshot).revision
-$candidate.base_revision=$before
-Write-TeamJson $candidatePath $candidate
-function Invoke-Codex { return @{Output="VERDICT: REVISE`n- Memory unsupported."} }
-$result=Invoke-ForemanStateReview @{Status='DONE'; Evidence=$evidence}
-Assert ($result.Output -match 'REVISE' -and (Read-TeamSnapshot).revision -eq $before) 'Rejected completion-state memory cannot publish'
-Assert ($result.Output -match 'unresolved questions') 'Completion cannot ignore questions beyond the initial inbox page'
 $snapshotPath=Join-Path $OvernightDir "memory/snapshots/$before.json"
 Add-Content $snapshotPath 'tampered'
 Must-Fail { Read-TeamSnapshot } 'Published snapshot tampering fails closed'

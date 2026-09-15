@@ -6,6 +6,7 @@ $LogDir=Join-Path $OvernightDir 'logs'
 New-Item -ItemType Directory $LogDir -Force | Out-Null
 $RunnerLogPath=Join-Path $OvernightDir 'runner.log'
 function Assert($value,$message) { if (-not $value) {throw $message}; Write-Host "PASS: $message" }
+function Get-TaskFingerprint {return 'test-fingerprint'}
 $script:workerCalls=0
 $script:reviewCalls=0
 function Invoke-WorkerWithRetry { $script:workerCalls++; return @{Status='OK';Attempt=1;LogFile='worker.log'} }
@@ -19,6 +20,13 @@ function Invoke-Foreman1Review { $script:reviewCalls++; return @{Verdict='PASS';
 function Invoke-Foreman2Verify { throw 'Unnecessary second review was dispatched' }
 $result=Execute-Task $task 'lean' ''
 Assert ($result.Status -eq 'PASS' -and $script:workerCalls -eq 1 -and $script:reviewCalls -eq 1) 'Worker runs once and passes after exactly one review'
+$script:workerCalls=0
+Write-TeamJson (Join-Path $OvernightDir 'worker-result-SLICE.json') @{fingerprint='test-fingerprint';log_file='saved.log'}
+$result=Execute-Task $task 'lean' ''
+Assert ($result.Status -eq 'PASS' -and $script:workerCalls -eq 0) 'Interrupted review resumes saved worker output without reimplementation'
+Write-TeamJson (Join-Path $OvernightDir 'worker-result-SLICE.json') @{fingerprint='old-fingerprint';log_file='saved.log'}
+$result=Execute-Task $task 'lean' ''
+Assert ($result.Status -eq 'PASS' -and $script:workerCalls -eq 1) 'Changed source invalidates saved worker output'
 function Get-ContextReviewBundle {throw 'Memory candidate is missing'}
 function Invoke-Codex {throw 'Plan approval called a model'}
 $result=Invoke-PlanReview 'docs/tasks/initial' 'docs/tasks/initial' 0 ''

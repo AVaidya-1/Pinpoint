@@ -19,7 +19,7 @@ function Show-Dashboard {
     if ($Watch) { Clear-Host }
     Write-Host "`n  AUTONOMOUS TEAM | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
     Write-Host '  Astra low: direction / impasse / completion'
-    Write-Host '  Opus 4.6 medium: plan + review | Sol 5.6 high: verify | Muse 1.3 high: work'
+    Write-Host '  Foreman: Opus 4.6 medium; quota fallback: Sol 5.6 high | Muse 1.3 high: work'
     Write-Host ('  ' + ('=' * 76)) -ForegroundColor DarkGray
     $runtime = Read-JsonFile 'runtime.json'
     if ($runtime) {
@@ -51,7 +51,7 @@ function Show-Dashboard {
         Write-Host '  Stop requested: finish current agent call, then stop.' -ForegroundColor Yellow
     }
     Write-Host "`n  PROVIDER USAGE" -ForegroundColor Yellow
-    Write-Host '  No automatic model fallback or billing changes. Remaining allowance: unknown.'
+    Write-Host '  Foreman quota fallback enabled; no billing changes. Remaining allowance: unknown.'
     foreach ($provider in @('anthropic','openai','opencode')) {
         $usage = Read-JsonFile "usage-$provider.json"
         if ($usage) {

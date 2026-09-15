@@ -1,3 +1,24 @@
+# Simple MVP orchestration
+
+Current execution: **Director spec + implementation plan → Foreman task Markdown
+files → sequential OpenCode tasks → one Foreman check after every two tasks**.
+
+Foreman is Opus 4.6 medium, with GPT-5.6 Sol high only on Opus usage limits.
+The queue persists in `out/orchestration/runtime/task-queue.json`; resume continues
+unfinished work. No planning rounds, second reviewer, or recursive Director repair.
+One concrete worker repair is allowed per failed batch; malformed planning gets
+one format repair. Provider quota waits continue the same assignment.
+
+Run `scripts/team_control.ps1 -Action resume` to continue; use `-Action pause` to
+finish the active bounded operation and pause. Completion and limitations are in
+`out/orchestration/runtime/COMPLETION_REPORT.md`. Task queue COMPLETE means the
+assigned work and checks finished; consult that report for live acceptance results.
+
+The older documentation below describes the previous runtime. Its dual-review,
+round-loop and automatic repair instructions are superseded by this workflow.
+
+---
+
 # Agent Orchestration
 
 A Windows, file-backed supervisor for a Director, two independent reviewing

@@ -1,71 +1,16 @@
-# Execution policy (current default)
+# Foreman task decomposition
 
-This policy supersedes conflicting dual-approval instructions below. The owner
-requires autonomous delivery with minimal management overhead.
+Read docs/product/PRODUCT_BRIEF.md and the Director implementation plan supplied
+by the runner. Inspect existing implementation and preserve completed work.
+Create one ordered queue of Markdown tasks covering the remaining MVP, including
+focused tests and final acceptance. Use docs/tasks/build/manifest.json and a
+CONTEXT.md alongside the task files. Follow the initial manifest schema; 1-32 tasks.
+Each task specifies useful implementation, allowed paths, outputs, and focused tests.
+Task evidence stays under out/orchestration/. Do not weaken product acceptance.
 
-- One concise plan, then Worker implementation and focused tests. A structurally
-  valid manifest dispatches immediately without F2 approval.
-- F1 reviews a task once, within ten minutes, using existing evidence. Repeat a
-  check only after relevant code/input changes or a concrete failing observation.
-  Do not turn a slice review into a full-product audit. One repair attempt is allowed.
-- F2 is reserved for explicitly requested thorough review (`-ThoroughReview`).
-  It is not a routine plan or review-of-review gate.
-- Memory updates are optional bookkeeping. Planner-authored summaries are labeled
-  as such, not independently approved. Invalid memory cannot block valid work.
-- The Director owns outcomes and may author task details directly. After a planning
-  impasse, the runner dispatches the Director as task author, bypassing the foremen.
-- Continue to the next unfinished product slice after a pass. No repeated validation
-  of unchanged successful work. Preserve existing work and evidence across restarts.
-- Owner scope, credentials, spending constraints and actual product acceptance still
-  apply. Only the Director accepts final completion based on product evidence.
-
-The remaining document describes the legacy thorough-review protocol where it conflicts.
-
-# Planner charter
-
-## Authority and termination
-OWNER_BRIEF.md and docs/product/PRODUCT_BRIEF.md define scope and acceptance.
-Agents cannot change them. Director supplies strategy; F1 owns bounded planning;
-F2 independently approves the plan and memory before any worker dispatch.
-Complete only the stated goal, then propose DONE. No automatic next product.
-
-## Every planning call
-Read the supplied packet, current round CONTEXT.md and relevant primary evidence.
-Write runtime/memory/candidate.json according to CONTEXT_PROTOCOL.md, regardless
-of outcome. Under out/orchestration/runtime write exactly one signal:
-- CONTINUE: next_round.txt containing a project-relative manifest path.
-- DONE candidate: COMPLETION_REPORT.md with acceptance and regression evidence.
-- STUCK: director_request.md with failed approaches and needed technical guidance.
-- BLOCKED: OWNER_QUESTIONS.md with the indispensable owner decision and evidence.
-F2 reviews the candidate and outcome. Director alone accepts DONE or BLOCKED.
-
-## New rounds
-Create a new docs/tasks/<unique-round>/ directory with CONTEXT.md, one to eight
-task Markdown files and manifest.json (see ../tasks/initial/manifest.json).
-Do not rewrite existing task documents. Each task states allowed writes,
-prohibitions, bounded steps, exact outputs, independent validation commands,
-Done-when, escape hatch, and ends with "Report, then STOP."
-Task docs remain under docs/. Gate files remain under out/orchestration/.
-Timeout is 1-480 minutes. Use continue_on_fail=false unless a failure is explicitly
-nonblocking. The manifest JSON schema is documented in ../SETUP.md.
-Diagnosis is read-only. Implementation tasks edit only authorized product paths.
-Do not modify orchestration, policy, prior evidence, credentials, or Git metadata.
-
-## Reviews and escalation
-F2 responds VERDICT: APPROVE, REVISE or BLOCKED on its first line. APPROVE covers
-both plan/outcome and memory. Revisions retain all material disagreements.
-Technical impasses return to Director; routine failure does not require an owner.
-F1's emergency hold is available only for concrete safety/coordinator integrity
-problems while persisted OpenAI quota proves Director unavailable. Use
-scripts/foreman1_hold.ps1, never forge a Director pause or terminal record.
-
-
-## Visual Evidence P0
-Read docs/product/PRODUCT_BRIEF.md in full. Its fixed A1-A12 software checks and
-20-question holdout thresholds control completion. No generated answer text.
-No P1 integrations, deployment, paid fallback, pushes or external notifications.
-Track mocked software evidence separately from real provider evidence. Do not
-prepopulate PASS reports, tune on holdout truth or weaken quality thresholds.
-If a required preflight is unavailable, record the exact dependency; do not
-spend the build budget fabricating a successful visual demo.
-Generated fixtures/data/logs go to ignored paths; track generators and JSON truth.
+Finish decomposition in one call. A malformed manifest gets one format repair.
+There are no planning rounds, plan approvals, memory candidates or second reviewers.
+OpenCode executes the queue serially. Check progress after two tasks and at the end.
+A concrete failure gets one focused worker repair, not another planning cycle.
+Opus 4.6 medium is the Foreman; Sol 5.6 high takes over only on Opus usage limits.
+Product constraints and scope are in OWNER_BRIEF.md and PRODUCT_BRIEF.md.

@@ -1,21 +1,10 @@
 <#
 .SYNOPSIS
-  Overnight runner: 4-tier autonomous supervisor for product task rounds.
+  Persisted MVP task queue: Director plan, Foreman decomposition, OpenCode execution.
 .DESCRIPTION
-  Tier 1 - Director  (gpt-6-astra, low):   reads project docs, sets strategic direction
-  Tier 2 - Foreman 1 (configured model, med): breaks Director plan into tasks, reviews worker output
-  Tier 3 - Foreman 2 (gpt-5.6-sol, high):   verifies Foreman 1 outputs against Director goals
-  Tier 4 - Worker    (opencode/muse-spark-1.3-contributor-free, high): executes one task at a time
-
-  Phase 1: Director briefing -> execute predefined tasks (worker -> gates -> Opus review -> Sol verify)
-  Phase 2 (-EnableRoundLoop): Opus plans -> Sol verifies -> worker -> both reviews.
-  Director is consulted only at initial setup, technical impasse, and completion.
-.EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts\run_team.ps1 -Tasks DEMO
-.EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts\run_team.ps1
-.EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts\run_team.ps1 -EnableRoundLoop -MaxRounds 10
+  One Foreman (Opus medium; Sol high on usage limits) writes all tasks once.
+  Workers execute sequentially. Foreman checks every two tasks and at the end.
+  Old round flags are accepted for CLI compatibility and never create planning loops.
 #>
 [CmdletBinding()]
 param(
@@ -296,10 +285,10 @@ You are Director / project manager, $DirectorModel on low. Reason for consultati
 Read docs/orchestration/AGENT_PROTOCOL.md, docs/orchestration/PLANNER_CHARTER.md,
 Use the current context packet and the specific director_request.md,
 OWNER_QUESTIONS.md or COMPLETION_REPORT.md under the overnight directory when present.
-For INITIAL strategy, consult docs/product/PRODUCT_BRIEF.md as needed.
+For INITIAL strategy, read docs/product/PRODUCT_BRIEF.md and return a concise implementation plan covering the entire MVP in build order, including focused tests and final acceptance. Reuse existing implementation. Do this once; do not propose planning rounds.
 For later consultations, retrieve only relevant changes and evidence; do not reread
 the full project history. Preserve the owner's standing constraints.
-Read the relevant task reports and both foremen's findings. Round: $RoundName.
+Read the relevant task reports and the Foreman's findings. Round: $RoundName.
 You are called only for initial strategy, a technical impasse, or completion.
 Independently verify a completion claim against the goal's validator and regression
 artifacts; a foreman's assertion is insufficient. DONE is allowed only for a
@@ -409,7 +398,7 @@ function Build-Foreman1ReviewPrompt {
         $outputDir = $outputDir.Substring($ProjectRoot.Length + 1)
     }
     $parts = @()
-    $parts += 'You are Foreman 1, reviewing a worker''s output for one task.'
+    $parts += 'You are the sole Foreman, reviewing a worker''s output for one task.'
     if ($DirectorBriefing) {
         $parts += 'The Director''s strategic briefing for this round:'
         $parts += $DirectorBriefing
@@ -450,7 +439,18 @@ function Execute-Task {
     $totalAttempts = 0
 
     while ($true) {
-        $workerResult = Invoke-WorkerWithRetry -Task $Task -Revision $revisionFeedback -DirectorBriefing $DirectorBriefing
+        $pendingWorkerPath = Join-Path $OvernightDir ("worker-result-" + ($Task.Name -replace '[^a-zA-Z0-9_-]', '_') + '.json')
+        $workerResult = $null
+        if (-not $revisionFeedback -and (Test-Path $pendingWorkerPath)) {
+            $savedWorker = Get-Content $pendingWorkerPath -Raw | ConvertFrom-Json
+            if ($savedWorker.fingerprint -eq (Get-TaskFingerprint $Task)) {
+                $workerResult = @{Status='OK'; Attempt=0; LogFile=$savedWorker.log_file}
+                Write-Log "$($Task.Name) -- resuming completed worker output at Foreman review"
+            }
+        }
+        if (-not $workerResult) {
+            $workerResult = Invoke-WorkerWithRetry -Task $Task -Revision $revisionFeedback -DirectorBriefing $DirectorBriefing
+        }
         $totalAttempts += $workerResult.Attempt
 
         if ($workerResult.Status -ne 'OK') {
@@ -492,7 +492,8 @@ function Execute-Task {
             }
         }
 
-        # Foreman 1 reviews worker output
+        Write-TeamJson $pendingWorkerPath @{fingerprint=(Get-TaskFingerprint $Task); log_file=$workerResult.LogFile}
+        # The sole Foreman reviews the completed worker output.
         $f1Result = Invoke-Foreman1Review -Task $Task -ReviewNum $revisionCount -DirectorBriefing $DirectorBriefing
 
         $finalVerdict = $f1Result.Verdict
@@ -500,6 +501,7 @@ function Execute-Task {
         $f2Result = @{Verdict='AGREE'; VerifyFile=''; Output=''}
 
         if ($finalVerdict -eq 'PASS') {
+            if (Test-Path $pendingWorkerPath) { Remove-Item -LiteralPath $pendingWorkerPath }
             $duration = [math]::Round(((Get-Date) - $taskStart).TotalMinutes, 1)
             return @{
                 Status = 'PASS'; Attempts = $totalAttempts
@@ -521,6 +523,7 @@ function Execute-Task {
             }
         }
 
+        if (Test-Path $pendingWorkerPath) { Remove-Item -LiteralPath $pendingWorkerPath }
         $revisionCount++
         if ($revisionCount -gt $MaxRevisions) {
             $duration = [math]::Round(((Get-Date) - $taskStart).TotalMinutes, 1)
@@ -709,8 +712,8 @@ function Validate-Manifest {
     if (-not $ManifestData.Tasks -or $ManifestData.Tasks.Count -eq 0) {
         $errors += 'No tasks defined'
     }
-    if ($ManifestData.Tasks.Count -gt 8) {
-        $errors += "Too many tasks ($($ManifestData.Tasks.Count) > 8)"
+    if ($ManifestData.Tasks.Count -gt 32) {
+        $errors += "Too many tasks ($($ManifestData.Tasks.Count) > 32)"
     }
     $taskNames = @{}
     foreach ($t in $ManifestData.Tasks) {
@@ -749,7 +752,7 @@ function Build-PlannerPrompt {
         $lines += '=== END DIRECTOR BRIEFING ==='
         $lines += ''
     }
-    $lines += 'You are Foreman 1 (the round planner) for the product repository at'
+    $lines += 'You are the sole Foreman (the round planner) for the product repository at'
     $lines += "$ProjectRoot. Your constitution is"
     $lines += 'docs/orchestration/PLANNER_CHARTER.md - read it first and obey it'
     $lines += 'within the owner-authorized goal. Resolve routine implementation choices yourself.'
@@ -763,8 +766,7 @@ function Build-PlannerPrompt {
     $lines += "Also write $(Join-Path $OvernightDir 'memory/candidate.json') using CONTEXT_PROTOCOL.md."
     $lines += 'This is required for every outcome. Propose a complete compact summary'
     $lines += 'based on the current memory revision, cite exact evidence files and'
-    $lines += 'explicitly resolve messages only when evidence warrants it. F2 checks'
-    $lines += 'both your plan/outcome and this memory candidate before publication.'
+    $lines += 'Resolve messages only with evidence. Memory is bookkeeping, not another approval gate.'
     $lines += 'Classify as DONE candidate, STUCK (technical impasse), BLOCKED (owner-only), or CONTINUE and'
     $lines += 'BLOCKED is reserved for a required external input or access, or a major path decision substantially changing scope, acceptance criteria, cost, or intended outcome. Routine orchestration repair, provider waits, Git checkpoints, plan revisions, review disagreements, and implementation choices stay inside the team. Exhaust bounded technical alternatives through the Director first. A completed goal must become DONE candidate; do not invent extra work.'
     $lines += 'produce exactly one signal file: COMPLETION_REPORT.md, director_request.md, OWNER_QUESTIONS.md, or next_round.txt under overnight. STUCK must name the evidence, attempted approaches and guidance needed. Ordinary failed tasks should get a revised evidence-backed plan; do not call the Director each round.'
@@ -849,137 +851,12 @@ function Invoke-PlanReview {
 
 # -- Phase 2: round loop -----------------------------------------------
 
+# Compatibility entry point: round flags now use the same durable queue.
 function Invoke-RoundLoop {
     param([hashtable]$LastRoundResult, [string]$DirectorBriefing)
-    $roundsRun = 0
-    if (-not $PlanFirst) { $roundsRun = 1 }
-    $prevContextDir = Split-Path $taskList[0].Doc -Parent
-    $currentRoundName = $LastRoundResult.RoundName
-    $feedback = ''
-    $planRevisions = 0
-    $progressPath = Join-Path $OvernightDir 'no-progress.json'
-    $failedRounds = 0
-    $directorRecoveries = 0
-    if (Test-Path $progressPath) {
-        $progress=Get-Content $progressPath -Raw | ConvertFrom-Json
-        $failedRounds=[int]$progress.failed_rounds
-        if ($progress.PSObject.Properties['director_recoveries']) { $directorRecoveries=[int]$progress.director_recoveries }
-    }
-    while ($true) {
-        if (Test-ShouldStop) { $script:TerminalStatus='STOPPED'; return }
-        if ($failedRounds -ge 3) {
-            $failureSummary="Three unsuccessful rounds require a new technical strategy. Last round: $currentRoundName. Failed-round count: $failedRounds. Review digest.md, state.json, communications.md, and the latest task/review artifacts. This is a technical impasse, not an owner question."
-            [IO.File]::WriteAllText($DirectorRequestPath,$failureSummary,[Text.UTF8Encoding]::new($false))
-            $d=Invoke-Director @() $currentRoundName 'STUCK'
-            if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-            $DirectorBriefing=$d.Plan
-            $feedback=$d.Plan
-            $directorRecoveries++
-            $failedRounds=0
-            Write-TeamJson $progressPath @{failed_rounds=$failedRounds;director_recoveries=$directorRecoveries;updated=(Get-Date).ToString('o')}
-            continue
-        }
-        $planner = Invoke-Planner $currentRoundName $prevContextDir $feedback $DirectorBriefing -DirectorOwned:($directorRecoveries -gt 0)
-        if ($planner.Status -eq 'PLANNER-ERROR') {
-            $feedback="Planner protocol/transport failure: $($planner.Reason)"
-            Add-Handoff 'Supervisor' 'Foreman1' 'Planner failure returned for a fresh bounded revision; supervisor remains healthy.' $planner.Reason
-            $planRevisions++
-            if ($planRevisions -lt 2) { continue }
-            [IO.File]::WriteAllText($DirectorRequestPath,$feedback,[Text.UTF8Encoding]::new($false))
-            $d=Invoke-Director @() $currentRoundName 'STUCK'
-            if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-            $DirectorBriefing=$d.Plan
-            $feedback=$d.Plan
-            $planRevisions=0
-            $directorRecoveries++
-            continue
-        }
-        if ($planner.Status -ne 'CONTINUE') {
-            $reason = switch ($planner.Status) { 'DONE' {'COMPLETION'} 'BLOCKED' {'OWNER-CANDIDATE'} default {'STUCK'} }
-            $d = Invoke-Director @() $currentRoundName $reason
-            if ($d.Status -in @('DONE','BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-            $DirectorBriefing = $d.Plan
-            $feedback = $d.Plan
-            $planRevisions = 0
-            $directorRecoveries++
-            continue
-        }
-        $newDir = Split-Path $planner.ManifestPath -Parent
-        $data = $null
-        $errors = @()
-        try {
-            $data = Load-Manifest (Join-Path $ProjectRoot $planner.ManifestPath)
-            $errors = Validate-Manifest $data
-        }
-        catch {
-            # Agent-authored plans are untrusted input. Return parser/schema failures
-            # to the reviewed planning loop instead of terminating the supervisor.
-            $errors = @("Manifest could not be loaded: $($_.Exception.Message)")
-        }
-        if ($errors.Count -gt 0) {
-            $review = @{Verdict='REVISE'; FullReview=($errors -join '; ')}
-        }
-        else { $review = Invoke-PlanReview $newDir $prevContextDir $planRevisions $DirectorBriefing }
-        if ($review.Verdict -ne 'APPROVE') {
-            $feedback = $review.FullReview
-            $planRevisions++
-            Add-Handoff 'Supervisor' 'Foreman1' "Plan $($review.Verdict): $feedback"
-            if ($review.Verdict -eq 'BLOCKED') {
-                [IO.File]::WriteAllText($OwnerQuestionsPath, $feedback, [Text.UTF8Encoding]::new($false))
-                [IO.File]::WriteAllText($DirectorRequestPath, $feedback, [Text.UTF8Encoding]::new($false))
-                $d = Invoke-Director @() $currentRoundName 'OWNER-CANDIDATE'
-                if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-                $DirectorBriefing = $d.Plan
-                $feedback = $d.Plan
-                $planRevisions = 0
-                $directorRecoveries++
-                continue
-            }
-            if ($planRevisions -ge 2) {
-                [IO.File]::WriteAllText($DirectorRequestPath, $feedback, [Text.UTF8Encoding]::new($false))
-                $d = Invoke-Director @() $currentRoundName 'STUCK'
-                if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-                $DirectorBriefing = $d.Plan
-                $feedback = $d.Plan
-                $planRevisions = 0
-                $directorRecoveries++
-            }
-            continue
-        }
-        # A configured round budget is a Director review boundary, never an
-        # autonomous stop authority.
-        if ($MaxRounds -gt 0 -and $roundsRun -ge $MaxRounds) {
-            [IO.File]::WriteAllText($DirectorRequestPath,"Configured round review boundary reached after $roundsRun rounds. Decide the next bounded technical strategy; this is not owner input.",[Text.UTF8Encoding]::new($false))
-            $d = Invoke-Director @() $currentRoundName 'STUCK'
-            if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-            $DirectorBriefing=$d.Plan
-            $feedback=$d.Plan
-            $roundsRun=0
-            $directorRecoveries++
-            continue
-        }
-        $prevContextDir = $newDir
-        $currentRoundName = $data.Round
-        $roundsRun++
-        $feedback = ''
-        $planRevisions = 0
-        $round = Invoke-Round $data.Tasks $currentRoundName $DirectorBriefing
-        if ($round.Status -eq 'COMPLETE') { $failedRounds=0; $directorRecoveries=0 }
-        elseif ($round.Status -notin @('STOPPED','CLEANUP-ERROR')) { $failedRounds++ }
-        Write-TeamJson $progressPath @{failed_rounds=$failedRounds;director_recoveries=$directorRecoveries;updated=(Get-Date).ToString('o')}
-        if ($round.Status -eq 'STOPPED') { $script:TerminalStatus='STOPPED'; return }
-        if ($round.Status -eq 'CLEANUP-ERROR') {
-            $feedback='An agent process could not be confirmed terminated. Keep all product work paused while the Director chooses and verifies a safe recovery.'
-            [IO.File]::WriteAllText($DirectorRequestPath,$feedback,[Text.UTF8Encoding]::new($false))
-            $d=Invoke-Director @() $currentRoundName 'STUCK'
-            if ($d.Status -in @('BLOCKED','STOPPED')) { $script:TerminalStatus=$d.Status; return }
-            $DirectorBriefing=$d.Plan
-            $feedback=$d.Plan
-            $directorRecoveries++
-        }
-    }
+    Invoke-SimpleQueue $DirectorBriefing
 }
-
+. (Join-Path $PSScriptRoot 'simple_queue.ps1')
 
 # -- DryRun -------------------------------------------------------------
 
@@ -1032,7 +909,7 @@ function Invoke-DryRun {
     Write-Host "Tasks: $($requestedTasks -join ', ')"
     Write-Host "MaxHours: $MaxHours | MaxRevisions: $MaxRevisions | SkipReview: $SkipReview"
     Write-Host "EnableRoundLoop: $EnableRoundLoop | MaxRounds: $MaxRounds"
-    if ($PlanFirst) { Write-Host 'PlanFirst: F1 evaluates current evidence and F2 reviews before any inherited task executes.' }
+    if ($PlanFirst) { Write-Host 'PlanFirst: F1 evaluates current evidence and dispatches without another approval.' }
     Write-Host ''
 
     foreach ($name in $requestedTasks) {
@@ -1183,16 +1060,7 @@ try {
         if ($d.Status -ne 'CONTINUE') { $script:TerminalStatus=$d.Status; return }
         $directorBriefing = $d.Plan
     }
-    if ($PlanFirst) {
-        $roundResult = @{Status='PENDING'; RoundName=$roundName}
-    }
-    else {
-        $roundResult = Invoke-Round $taskList $roundName $directorBriefing
-    }
-    if ($EnableRoundLoop -and $roundResult.Status -notin @('STOPPED','CLEANUP-ERROR','ERROR','TIMEOUT')) {
-        Invoke-RoundLoop $roundResult $directorBriefing
-    }
-    else { $script:TerminalStatus=$roundResult.Status }
+    Invoke-SimpleQueue $directorBriefing
 }
 catch {
     if (-not $runnerLock) { throw 'Another supervisor holds runner.lock, or the lock is inaccessible.' }
@@ -1215,7 +1083,7 @@ finally {
             & (Join-Path $ProjectRoot '.venv/Scripts/python.exe') (Join-Path $PSScriptRoot 'team_git.py') checkpoint --label $checkpointLabel
             if ($LASTEXITCODE -ne 0) { $script:TerminalStatus='SUPERVISOR-ERROR' }
         }
-        if ($script:TerminalStatus -ne 'SUPERVISOR-ERROR') { $script:TerminalAction = 'See communications.md and digest.md for next action' }
+        if ($script:TerminalAction -eq 'Loading strategy') { $script:TerminalAction = 'See task-queue.json and latest agent logs for progress or the exact failure.' }
         Write-Runtime $script:TerminalStatus 'Supervisor' $script:TerminalAction
         Write-Log "Supervisor finished -- status: $script:TerminalStatus"
         $runnerLock.Dispose()

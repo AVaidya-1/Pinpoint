@@ -1,7 +1,7 @@
 # No live models or product runs. Execute with Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly -ThoroughReview
+. (Join-Path $repo 'scripts/run_team.ps1') -LibraryOnly
 $testRoot = Join-Path $repo ('out/orchestration_tests/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 $OvernightDir = $testRoot
@@ -74,11 +74,11 @@ Assert ($writeArgs -contains '--approve-for-me' -and $writeArgs -notcontains '--
 Assert ($readArgs -contains '--sandbox' -and $readArgs -contains 'read-only' -and $readArgs -notcontains '--approve-for-me') 'Read-only Codex review uses the explicit sandbox without automatic approval mode'
 $f1Prompt=Get-CommunicationPrompt -Role 'Foreman1' -Label 'hold-authority-check'
 $workerPrompt=Get-CommunicationPrompt -Role 'Worker' -Label 'hold-authority-check'
-Assert ($f1Prompt -match 'foreman1_hold\.ps1' -and $workerPrompt -notmatch 'foreman1_hold\.ps1') 'Emergency hold command is disclosed only to Foreman1'
+Assert ($f1Prompt -notmatch 'foreman1_hold\.ps1' -and $workerPrompt -notmatch 'foreman1_hold\.ps1') 'Simple role prompts omit emergency-hold bureaucracy'
 $repairSource=Get-Content (Join-Path $repo 'scripts/supervisor_repair.ps1') -Raw
 $controlSource=Get-Content (Join-Path $repo 'scripts/team_control.ps1') -Raw
 Assert ($repairSource -notmatch '--sandbox\s+workspace-write\s+--approve-for-me') 'Supervisor repair source cannot recreate the rejected Codex flag combination'
-Assert ($controlSource -match "run_team\.ps1'\) -PlanFirst -MaxRounds 0 -MaxHours 0") 'Production resume uses continuous mode without a wall-clock self-stop'
+Assert ($controlSource -match "run_team\.ps1'\) -MaxHours 0") 'Production resume invokes the durable queue'
 Assert ((Get-Content (Join-Path $testRoot 'communications.md') -Raw) -match 'Supervisor -> Worker') 'Shared ledger records handoffs'
 Assert ((@(Get-ChildItem $LogDir -Filter '*.prompt.txt')).Count -eq 7) 'Retries retain separate prompt logs'
 Assert (Test-ContainedPath (Join-Path $ArtifactRoot 'new/evaluation.json') $ArtifactRoot) 'Valid gate stays within the output directory'
@@ -119,84 +119,8 @@ $conflict=Invoke-Planner 'mock' 'docs/tasks/initial' '' 'strategy'
 Assert ($conflict.Status -eq 'STUCK' -and (Test-Path $conflict.Evidence)) 'Multiple planner signals route to F2 and Director as a preserved technical incident'
 ${function:Invoke-AgentProcess} = $realAgentProcess
 
-# Preserve real functions; inject bounded deterministic agents into the loop.
+# Planning, batch reviews and resume are covered by test_simple_queue.ps1.
 $realDirector = ${function:Invoke-Director}
-$realRound = ${function:Invoke-Round}
-$realExecute = ${function:Execute-Task}
-$realCodex = ${function:Invoke-Codex}
-$realWorker = ${function:Invoke-WorkerWithRetry}
-$taskList = @(@{Name='mock'; Doc=$initialTaskDoc; GateFiles=@(); JsonGates=@(); TimeoutMin=1; ContinueOnFail=$false})
-$PlanFirst = $true
-$MaxRounds = 3
-$script:events = @()
-$script:plans = [Collections.Queue]::new()
-function Invoke-Planner {
-    $script:events += 'F1-plan'
-    return $script:plans.Dequeue()
-}
-function Invoke-Codex {
-    $script:events += 'F2-state'
-    return @{Output="VERDICT: APPROVE`n- Mock evidence checked."}
-}
-function Invoke-ForemanStateReview { return (Invoke-Codex) }
-function Load-Manifest { return @{Round='MOCK'; Tasks=$taskList} }
-function Validate-Manifest { return ,@() }
-function Invoke-PlanReview {
-    $script:events += 'F2-plan'
-    return @{Verdict='APPROVE'; FullReview='approved'}
-}
-function Invoke-Round {
-    $script:events += 'Worker-round'
-    return @{Status='COMPLETE'; RoundName='MOCK'}
-}
-function Invoke-Director {
-    param($TaskList, $RoundName, $Reason)
-    $script:events += "Director-$Reason"
-    if ($Reason -eq 'COMPLETION') { return @{Status='DONE'; Plan='done'} }
-    if ($Reason -eq 'OWNER-CANDIDATE') { return @{Status='BLOCKED'; Plan='owner input required'} }
-    return @{Status='CONTINUE'; Plan='new direction'}
-}
-$script:plans.Enqueue(@{Status='CONTINUE'; ManifestPath='docs/mock/manifest.json'})
-$script:plans.Enqueue(@{Status='CONTINUE'; ManifestPath='docs/mock/manifest.json'})
-$script:plans.Enqueue(@{Status='DONE'; Evidence='mock.md'})
-Invoke-RoundLoop @{RoundName='B'} 'existing strategy'
-Assert (($script:events -join ',') -eq 'F1-plan,F2-plan,Worker-round,F1-plan,F2-plan,Worker-round,F1-plan,F2-state,Director-COMPLETION') 'Routine rounds omit Director; completion requires F2 then Director'
-Assert ($script:TerminalStatus -eq 'DONE') 'Only reviewed and Director-confirmed completion becomes DONE'
-$script:events = @()
-$script:plans.Enqueue(@{Status='STUCK'; Evidence='mock.md'})
-$script:plans.Enqueue(@{Status='CONTINUE'; ManifestPath='docs/mock/manifest.json'})
-$script:plans.Enqueue(@{Status='BLOCKED'; Evidence='owner.md'})
-Invoke-RoundLoop @{RoundName='B'} 'existing strategy'
-Assert (($script:events -join ',') -eq 'F1-plan,F2-state,Director-STUCK,F1-plan,F2-plan,Worker-round,F1-plan,F2-state,Director-OWNER-CANDIDATE') 'Technical impasse returns through Director; owner-block candidate also requires Director authority'
-Assert ($script:TerminalStatus -eq 'BLOCKED') 'Only the Director can confirm an owner-only block'
-$script:events = @()
-$script:planReviews = [Collections.Queue]::new()
-$script:planReviews.Enqueue('REVISE')
-$script:planReviews.Enqueue('APPROVE')
-function Invoke-PlanReview {
-    $verdict = $script:planReviews.Dequeue()
-    $script:events += "F2-plan-$verdict"
-    return @{Verdict=$verdict; FullReview='Use the exact evidence check'}
-}
-$script:plans.Enqueue(@{Status='CONTINUE'; ManifestPath='docs/mock/manifest.json'})
-$script:plans.Enqueue(@{Status='CONTINUE'; ManifestPath='docs/mock/manifest.json'})
-$script:plans.Enqueue(@{Status='DONE'; Evidence='mock.md'})
-Invoke-RoundLoop @{RoundName='B'} 'existing strategy'
-Assert (($script:events -join ',') -eq 'F1-plan,F2-plan-REVISE,F1-plan,F2-plan-APPROVE,Worker-round,F1-plan,F2-state,Director-COMPLETION') 'Plan rejection returns to F1 and reaches the worker only after F2 approval'
-
-# F2's failure reason must control the digest, not F1's positive checklist.
-${function:Execute-Task} = $realExecute
-function Invoke-WorkerWithRetry { return @{Status='OK'; Attempt=1; LogFile='mock.log'} }
-function Test-Gates { return @{Pass=$true} }
-function Invoke-Foreman1Review { return @{Verdict='PASS'; ReviewFile='f1.md'; TopReason='Artifacts exist'; FullReview='PASS'} }
-function Invoke-Foreman2Verify { return @{Verdict='DISAGREE'; VerifyFile='f2.md'; Output="VERDICT: DISAGREE`nTASK_VERDICT: FAIL`n- Unsupported surface attribution"} }
-$MaxRevisions = 0
-$r = Execute-Task $taskList[0] 'mock' 'strategy'
-Assert ($r.Status -eq 'FAIL' -and $r.Reason -match 'Unsupported surface') 'F2 rejection and reason override F1 PASS'
-function Invoke-Foreman2Verify { return @{Verdict='AGREE'; VerifyFile='f2.md'; Output="VERDICT: AGREE`n- Looks good"} }
-$r = Execute-Task $taskList[0] 'mock' 'strategy'
-Assert ($r.Status -eq 'FAIL') 'Missing structured F2 task verdict fails closed'
-
 # Invalid Director output must never replace a useful saved briefing.
 ${function:Invoke-Director} = $realDirector
 function Invoke-Codex { return @{Output=''} }

@@ -27,28 +27,7 @@ function Invoke-Codex { return @{Output="DECISION: DONE`nAll goal evidence check
 $r=Invoke-Director @() 'TEST' 'COMPLETION'
 Assert ($r.Status -eq 'DONE' -and (Test-ShouldStop)) 'Confirmed goal completion blocks future dispatch'
 Remove-Item -LiteralPath (Join-Path $OvernightDir 'hard-stop.json')
-$script:directorRecoveries=0
-function Invoke-Codex {
-    $script:directorRecoveries++
-    if ($script:directorRecoveries -ge 2) {
-        return @{Output="DECISION: BLOCKED`nThe Director independently confirmed that owner-only input is now required."}
-    }
-    return @{Output="DECISION: CONTINUE`nTry the next bounded technical alternative."}
-}
-$PlanFirst=$true
-$taskList=@(@{Doc='docs/test/task.md'})
-$script:roundCalls=0
-function Invoke-Planner { return @{Status='CONTINUE';ManifestPath='docs/test/manifest.json'} }
-function Load-Manifest { return @{Round='TEST';Tasks=$taskList} }
-function Validate-Manifest { return ,@() }
-function Invoke-PlanReview { return @{Verdict='APPROVE'} }
-function Invoke-Round { $script:roundCalls++; return @{Status='FAIL'} }
-$MaxRounds=0
-Invoke-RoundLoop @{RoundName='TEST'} 'test strategy'
-Assert ($script:TerminalStatus -eq 'BLOCKED' -and $script:roundCalls -eq 6 -and $script:directorRecoveries -eq 2) 'Repeated failures continue until the Director explicitly authorizes a stop'
-$terminal=Get-Content (Join-Path $OvernightDir 'hard-stop.json') -Raw | ConvertFrom-Json
-Assert ($terminal.role -eq 'Director') 'Persisted terminal stop identifies the Director authority'
-Remove-Item -LiteralPath (Join-Path $OvernightDir 'hard-stop.json')
+# Queue failures are bounded and tested in test_simple_queue.ps1.
 $holdDenied=$false
 $incidentPath=Join-Path $OvernightDir 'incident.md'
 [IO.File]::WriteAllText($incidentPath,'Synthetic coordinator safety evidence.',[Text.UTF8Encoding]::new($false))

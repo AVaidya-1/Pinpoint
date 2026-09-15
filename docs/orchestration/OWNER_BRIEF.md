@@ -1,13 +1,23 @@
+# Current owner direction: one Foreman
+
+One Foreman plans and reviews: claude-opus-4-6 at medium effort.
+On an Anthropic usage limit, gpt-5.6-sol at high effort continues the same
+assignment through the existing Codex account. Prefer Opus on subsequent
+assignments after its recorded reset or next availability-check time.
+If both providers are limited, wait automatically. No credit purchase or billing
+change is authorized. This supersedes dual-foreman and no-switch rules below.
+
 # Owner policy — Visual Evidence POC
 
 The controlling product scope and acceptance criteria are in
 docs/product/PRODUCT_BRIEF.md. Build only its P0 localhost proof of concept.
 Do not invent commercial infrastructure or follow-on milestones.
 
-Director sets strategy and accepts final completion. F1 plans/reviews;
-F2 independently verifies; Worker executes one approved task at a time.
-Only the supervisor owns Git checkpoints. Preserve the single-writer rule,
-review protocols, evidence history and hard-stop controls. No hidden delegation.
+Director supplies the product spec and implementation plan once. The sole Foreman
+creates all remaining task Markdown files once. OpenCode executes them in order.
+Foreman checks progress after every two tasks and at the end. Resume the saved queue,
+without replanning or a second reviewer. Only the supervisor owns Git checkpoints.
+Preserve evidence history and owner pause controls. No hidden delegation.
 
 Use the verified separate product checkout and exact configured origin.
 Local checkpoints are allowed. No standing permission for automatic pushes,

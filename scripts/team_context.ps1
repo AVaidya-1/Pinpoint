@@ -165,34 +165,11 @@ function Get-ContextReviewInstruction {
     return "Also review the memory candidate at $($Bundle.ReviewPath). Compare with the current approved snapshot, current task results and supplied inbox batch. Retrieve each message proposed for resolution by ID, plus relevant questions/replies for this assignment; do not load the entire inbox or history. Unhandled messages remain queued independently of the summary. Check every new verified claim against cited evidence; retain material prior decisions, failed approaches and dissent. Hypotheses must stay labeled. Independently verify each proposed message resolution; an answer alone does not close a question. APPROVE only if BOTH this assignment and memory candidate pass. Do not edit memory, evidence or messages."
 }
 
-function Invoke-ForemanStateReview {
-    param($Planner)
-    try { $bundle = Get-ContextReviewBundle }
-    catch { return @{Output="VERDICT: REVISE`n- Memory candidate invalid: $_"} }
-    if ($Planner.Status -eq 'DONE') {
-        $closing = @($bundle.Candidate.resolutions | ForEach-Object { $_.id })
-        $unresolved = @(Get-TeamMessages | Where-Object { $_.kind -eq 'QUESTION' -and $_.id -notin $closing })
-        if ($unresolved.Count -gt 0) {
-            $ids = ($unresolved | Select-Object -First 8 | ForEach-Object { $_.id }) -join ', '
-            return @{Output="VERDICT: REVISE`n- Completion has $($unresolved.Count) unresolved questions without proposed dispositions. First IDs: $ids"}
-        }
-    }
-    $prompt = "F1 proposes $($Planner.Status). Read $($Planner.Evidence), the planner charter, relevant reports and supplied inbox. Independently verify the evidence. DONE requires every north-star gate. BLOCKED is owner-only; technical uncertainty is STUCK. First line exactly VERDICT: APPROVE or VERDICT: REVISE. Then evidence and corrections. Do not edit files. "
-    $prompt += Get-ContextReviewInstruction $bundle
-    $check = Invoke-Codex $Foreman2Model 'high' $prompt "F2-state-$($Planner.Status)"
-    $file = Save-AgentReply 'f2_memory_state' $check.Output
-    if ($check.Output -match '\A\s*VERDICT:\s*APPROVE\s*(?:\r?\n|$)') {
-        try { Publish-TeamContext $bundle $file | Out-Null }
-        catch { return @{Output="VERDICT: REVISE`n- Memory publication rejected: $_"} }
-    }
-    return $check
-}
-
 function Publish-TeamContext {
     param($Bundle, [string]$ReviewFile, [switch]$PlannerAuthored)
     $review = ''
     if (-not $PlannerAuthored) { $review = Get-Content $ReviewFile -Raw -Encoding UTF8 }
-    if (-not $PlannerAuthored -and $review -notmatch '\A\s*VERDICT:\s*APPROVE\s*(?:\r?\n|$)') { throw 'Memory publication requires F2 APPROVE.' }
+    if (-not $PlannerAuthored -and $review -notmatch '\A\s*VERDICT:\s*APPROVE\s*(?:\r?\n|$)') { throw 'Reviewed memory publication requires APPROVE.' }
     if ((Get-TeamFileHash $Bundle.Path) -ne $Bundle.Hash -or
         (Get-TeamFileHash $Bundle.ReviewPath) -ne $Bundle.Hash) { throw 'Candidate changed during review.' }
     $current = Read-TeamSnapshot
@@ -261,7 +238,7 @@ function Get-TeamContextPacket {
             $lines += "- $($e.round)/$($e.task): $($e.status) at $($e.timestamp)"
         }
     }
-    $lines += "## Retrieval`nSearch exact task IDs or filenames in $OvernightDir/communications.md, digest.md, notes.md, logs/ and memory/. Read relevant matches and evidence, not entire histories. Latest task reports override a stale summary. F2 must inspect primary artifacts before accepting claims."
+    $lines += "## Retrieval`nSearch exact task IDs or filenames in $OvernightDir/communications.md, digest.md, notes.md, logs/ and memory/. Read relevant matches and evidence, not entire histories. Latest task reports override a stale summary. The Foreman checks relevant primary evidence once."
     $packet = $lines -join "`r`n"
     if ($packet.Length -gt 24000) { throw 'Context packet exceeds 24000 characters; do not silently truncate.' }
     $path = Join-Path $OvernightDir ('memory/packets/' + [Guid]::NewGuid().ToString('N') + '.md')
