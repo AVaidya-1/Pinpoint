@@ -130,7 +130,16 @@ $DirectorBriefing
         $feedback=''
         for ($attempt=0; $attempt -le 1; $attempt++) {
             $worker = Invoke-WorkerWithRetry $task $feedback $DirectorBriefing
-            if ($worker.Status -ne 'OK') { $script:TerminalStatus=$worker.Status; return }
+            if ($worker.Status -eq 'TIMEOUT' -and $attempt -lt 1) {
+                $feedback = "The previous attempt timed out. Resume its partial implementation and existing artifacts; do not start over. Complete only this task, run focused checks once, and save the report. Previous output: " + $worker.LogFile
+                Write-Log "$($task.Name) timed out; continuing partial work once without replanning."
+                continue
+            }
+            if ($worker.Status -ne 'OK') {
+                $script:TerminalStatus=$worker.Status
+                $script:TerminalAction="Task $($task.Name) stopped after its bounded continuation: $($worker.Status). Partial work is preserved. See $($worker.LogFile)."
+                return
+            }
             $gate = Test-Gates $task
             if ($gate.Pass) { break }
             $feedback="Fix the task's failing outputs and rerun focused tests. " + $gate.Reason

@@ -66,3 +66,18 @@ Remove-Item -LiteralPath (Join-Path $ProjectRoot 'docs/tasks/build/manifest.json
 Invoke-SimpleQueue 'Build MVP'
 Invoke-SimpleQueue 'Build MVP'
 Assert (($script:events -join ',') -eq 'create-task-queue,create-task-queue' -and $script:TerminalStatus -eq 'PLAN-ERROR') 'Malformed planning has one repair total, including across restarts'
+# A timed-out worker gets one continuation from partial output, not a replan.
+$script:events=@();$script:badPlan=$false;$script:timeoutCalls=0
+Remove-Item -LiteralPath $queuePath
+function Invoke-WorkerWithRetry {
+    param($Task,$Revision,$DirectorBriefing)
+    $script:events += $Task.Name
+    if ($Task.Name -eq 'T1' -and $script:timeoutCalls -eq 0) {
+        $script:timeoutCalls++
+        return @{Status='TIMEOUT';Attempt=1;LogFile='partial.log'}
+    }
+    if ($Task.Name -eq 'T1' -and $Revision -notmatch 'partial implementation') {throw 'Timeout lost resume feedback'}
+    return @{Status='OK';Attempt=1;LogFile='done.log'}
+}
+Invoke-SimpleQueue 'Build MVP'
+Assert ($script:TerminalStatus -eq 'COMPLETE' -and (($script:events | Where-Object {$_ -eq 'T1'}).Count -eq 2)) 'Timeout continues partial task once and then advances queue'
