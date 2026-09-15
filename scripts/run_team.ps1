@@ -735,7 +735,7 @@ function Validate-Manifest {
             }
         }
         foreach ($gf in @($t.GateFiles) + @($t.JsonGates | ForEach-Object { $_.File })) {
-            if (-not (Test-ContainedPath $gf $ArtifactRoot)) { $errors += "Task $($t.Name): gate path escapes artifact directory ($gf)" }
+            if (-not (Test-ContainedPath $gf $ProjectRoot)) { $errors += "Task $($t.Name): output path escapes project ($gf)" }
         }
     }
     return ,$errors

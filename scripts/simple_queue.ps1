@@ -45,6 +45,7 @@ function Invoke-SimpleQueue {
             if ($queue.planning_attempts -ge 2) {
                 $script:TerminalStatus='PLAN-ERROR'; $script:TerminalAction='Task planning exhausted its one format repair. See task-queue.json and planner logs.'; return
             }
+            $formatFeedback = [string](Get-ObjectProperty $queue 'plan_error')
             for ($attempt=[int]$queue.planning_attempts; $attempt -lt 2; $attempt++) {
                 if (Test-ShouldStop) { $script:TerminalStatus='STOPPED'; return }
                 $queue.planning_attempts++; Write-TeamJson $queuePath $queue
@@ -65,14 +66,22 @@ If this is a format repair, repair the existing manifest rather than revisiting 
 Director direction:
 $DirectorBriefing
 "@
-                $r = Invoke-AgentProcess 'Foreman1' $Foreman1Model 'medium' $prompt 'create-task-queue' 10
+                if ($attempt -gt 0) {
+                    $prompt = "Repair only the existing task manifest at $manifestPath. Validation error: $formatFeedback. Preserve task scope and order. Use the existing files; do not reread the product spec, replan, or recreate tasks. Task docs stay under docs; output paths stay within this project. Return once the manifest is valid."
+                }
+                $r = Invoke-AgentProcess 'Foreman1'  $Foreman1Model 'medium' $prompt 'create-task-queue' 10
                 if ($r.Status -ne 'OK') { $script:TerminalStatus=$r.Status; return }
                 try {
                     $data = Load-Manifest $manifestPath
                     $errors = Validate-Manifest $data
                     if ($errors.Count) { throw ($errors -join '; ') }
                     break
-                } catch { $data=$null; Write-Log "Task queue format error: $_" }
+                } catch {
+                    $data=$null; $formatFeedback=$_.Exception.Message
+                    $queue | Add-Member -NotePropertyName plan_error -NotePropertyValue $formatFeedback -Force
+                    Write-TeamJson $queuePath $queue
+                    Write-Log "Task queue format error: $formatFeedback"
+                }
             }
         }
         if (-not $data) { $script:TerminalStatus='PLAN-ERROR'; return }
@@ -109,8 +118,8 @@ $DirectorBriefing
                 & (Join-Path $ProjectRoot '.venv/Scripts/python.exe') (Join-Path $PSScriptRoot 'team_git.py') checkpoint --label 'Task batch checked by Foreman' --push-if-approved
                 if ($LASTEXITCODE -ne 0) { throw 'Could not checkpoint the completed batch.' }
             }
-            $queue.checked=$count; $queue.repair_attempts=0; Write-TeamJson $queuePath $queue
             if ($final) { [IO.File]::WriteAllText($CompletionReportPath,$check.Output,[Text.UTF8Encoding]::new($false)) }
+            $queue.checked=$count; $queue.repair_attempts=0; Write-TeamJson $queuePath $queue
         }
         if ($final) {
             $queue.status='COMPLETE'; Write-TeamJson $queuePath $queue
