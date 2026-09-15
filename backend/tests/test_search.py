@@ -335,3 +335,58 @@ def test_cache_keys_cover_model_and_prompt(tmp_path, monkeypatch):
     c1 = check_cache_key("h", "q", "m", [[0.1, 0.1, 0.2, 0.2]], "crop1")
     c2 = check_cache_key("h", "q", "m", [[0.1, 0.1, 0.3, 0.3]], "crop1")
     assert c1 != c2
+
+
+LIVE_STYLE_FOUND = (
+    '{"status": "found", "kind": "text", '
+    '"boxes_2d": [[300, 203, 601, 503]], "scope": "region"}'
+)
+
+
+def test_strip_fences_handles_gemma_markdown_wrapping():
+    assert provider._strip_fences(
+        "```json\n" + LIVE_STYLE_FOUND + "\n```") == LIVE_STYLE_FOUND
+    assert provider._strip_fences(
+        "```\n" + LIVE_STYLE_FOUND + "\n```") == LIVE_STYLE_FOUND
+    # No fence passes through unchanged (apart from outer whitespace).
+    assert provider._strip_fences("  " + LIVE_STYLE_FOUND + "  ") == LIVE_STYLE_FOUND
+    # Missing closing fence still recovers the payload.
+    assert provider._strip_fences("```json\n" + LIVE_STYLE_FOUND) == LIVE_STYLE_FOUND
+
+
+def test_parse_inspect_handles_live_style_fenced_response():
+    parsed = provider._parse_inspect_json("```json\n" + LIVE_STYLE_FOUND + "\n```")
+    assert parsed == {"status": "found", "kind": "text",
+                      "boxes_2d": [[300, 203, 601, 503]], "scope": "region"}
+
+
+def test_live_style_response_flows_to_found_evidence(tmp_path, monkeypatch):
+    """A double returning the exact validated shape of a live Gemma payload
+    (as inspect_page would return after parsing) produces evidence."""
+    live_parsed = provider._parse_inspect_json(
+        "```json\n" + LIVE_STYLE_FOUND + "\n```")
+    conn, settings, pages, search_id, job_id = _seed(tmp_path, monkeypatch, 1)
+    try:
+        summary = run_search(conn, settings, search_id=search_id, job_id=job_id,
+                             question="Where is the latch?", pages=pages,
+                             inspect_fn=_inspect(live_parsed), check_fn=_check("accepted"))
+        assert summary["outcome"] == "found"
+        ev = conn.execute("SELECT * FROM evidence").fetchall()
+        assert len(ev) == 1
+        assert json.loads(ev[0]["boxes_json"])[0] == pytest.approx([0.203, 0.3, 0.503, 0.601])
+    finally:
+        _close(conn)
+
+
+def test_coordinate_conversion_matches_viewer_overlay():
+    from app.geometry import provider_to_app, validate_app_box, app_to_viewbox
+
+    # Live locate box [ymin,xmin,ymax,xmax] -> viewer overlay [x0,y0,x1,y1].
+    app_box = provider_to_app([300, 203, 601, 503])
+    assert app_box == pytest.approx([0.203, 0.3, 0.503, 0.601])
+    validate_app_box(app_box)
+    x, y, w, h = app_to_viewbox(app_box)
+    assert (x, y, w, h) == pytest.approx((203.0, 300.0, 300.0, 301.0))
+    assert w > 0 and h > 0
+    # Full-page scope box maps to the whole overlay.
+    assert provider_to_app([0, 0, 1000, 1000]) == pytest.approx([0.0, 0.0, 1.0, 1.0])
