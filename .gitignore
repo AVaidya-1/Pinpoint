@@ -1,0 +1,23 @@
+data/
+out/
+*.db
+*.sqlite
+.env
+__pycache__/
+*.pyc
+.venv/
+backend/.venv/
+node_modules/
+frontend/dist/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+visual-evidence/
+agent-orchestration-system/
+
+data/
+General Documents/
+Testing Documents/
+visual-evidence-remote.git/
+.env
