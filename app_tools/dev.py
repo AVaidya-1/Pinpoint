@@ -1,11 +1,8 @@
-"""Dev server launcher for the Visual Evidence P0 slice.
+"""Pinpoint dev launcher: backend + hot-reloading frontend.
 
 Starts the backend (uvicorn) on 127.0.0.1:8000 and the frontend (vite) on
 127.0.0.1:5173 using absolute paths, so it works from any working directory.
-The e2e harness is the sole owner of this launcher's lifecycle during tests.
-
-On Windows the launcher prints `PID:<backend_pid>,<frontend_pid>` within the
-first lines of stdout so the harness can track and stop the exact processes.
+It prints `PID:<backend_pid>,<frontend_pid>` on startup.
 
 `--check` starts both servers, waits for health, then shuts down cleanly and
 exits 0 on success.
