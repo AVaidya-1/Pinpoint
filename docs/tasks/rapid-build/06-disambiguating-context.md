@@ -1,0 +1,9 @@
+# Task 06 — Include disambiguating context in located evidence
+
+Fresh Claude Code Sonnet 4.6 coding session. Read the build directive and `out/evaluation/gold-audit-20260924.md`, task 05 report, and the current locate/check flow. Do not delegate.
+
+Observed failure: h12 asked for the V2 valve symbol in Loop 1, where both Loop 1 and Loop 2 have a V2 symbol. Locate chose only the tiny symbol box (`[x0,y0,x1,y1]=[.179,.305,.243,.346]`), excluding the nearby Loop 1 label. The checker correctly rejected that ambiguous box even after full-page and crop selection markers were added. Other questions about a pair, direction, or relative position likewise need the object plus discriminating context. The app must highlight enough source context without highlighting the whole page.
+
+Improve the general locate prompt or a bounded repair pass so the model proposes one to three boxes that jointly contain the named object **and** any nearby label, legend, axis, connection, or companion object needed to distinguish repeated instances and spatial relationships. Do not hard-code fixture terms, expected coordinates, or question IDs into app behavior. Keep inspect and check cache versions honest. Preserve no-evidence and incomplete behavior; do not accept evidence merely because it is on the correct page. Keep configured Gemma model and free-tier use only.
+
+Validate with deterministic tests and at most two targeted live questions using the existing page 8 schematic and page 7 chart. The h12 test must show the proposed box(es) include both Loop 1 context and the correct symbol, then pass the checker; a mere page match is insufficient. If it does not pass, report the actual failure and stop instead of claiming completion. Do not run the full holdout or edit its frozen reference regions. Leave the localhost app processes to the reviewer. Write `out/rapid-build/06-report.md` with exact commands and outcomes. Report, then STOP.

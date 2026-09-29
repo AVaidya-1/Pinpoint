@@ -1,0 +1,9 @@
+# Task 05 — Repair false rejection of correctly located evidence
+
+Read `docs/product/BUILD_DIRECTIVE_2026-09-23.md`, `out/evaluation/gold-audit-20260924.md`, `out/evaluation/report.json`, and current `backend/app/search.py`, `backend/app/providers/gemma.py`, and prompt files. The owner wants a dependable PDF evidence app, not a cosmetic pass. This is a fresh Sonnet 4.6 coding session. Do not delegate further.
+
+Current evidence: On the original 20-question run, five of six missed answerable pages had a correct-page locate box rejected by the second model check (h05, h07, h09, h12, h14). The crop sent to the checker included distractors without marking the proposed box. The current checkout now draws a red outline on the crop; targeted free-model probes changed h05 and h09 to `accepted`, while h07 and h12 still returned `rejected`. Backend suite currently passes 81 tests. The app is running on localhost; leave its processes alone. Do not change the original frozen holdout or its recorded score.
+
+Deliver one focused improvement to the checker/repair path that can distinguish the proposed box on the full page and crop, or produce a better contextual box when the first box lacks essential context. Favor a visible selection marker on both images before more model calls. Keep false-positive protection: a wrong box must still be rejected. Keep provenance and coverage states honest; do not promote a rejected check to accepted without evidence. Preserve the configured `gemma-4-26b-a4b-it` provider and avoid keys in output.
+
+Validate with deterministic backend tests and at most three targeted free-tier live probes drawn from the existing h07 and h12 failures plus one clearly wrong-box negative control. Do not run the full 20-question evaluation in this worker task. Write `out/rapid-build/05-report.md` with exact changes, commands, outcomes, and unresolved failures. Report, then STOP.

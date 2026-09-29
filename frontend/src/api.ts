@@ -1,149 +1,102 @@
-export interface PageInfo {
-  id: string;
-  physical_page_number: number;
-}
-
-export interface DocumentInfo {
+export interface DocInfo {
   id: string;
   filename: string;
-  mime_type: string;
-  status: string;
   page_count: number;
-  pages: PageInfo[];
-  original_path: string;
+  status: 'indexing' | 'ready' | 'error';
+  indexed_pages: number;
+  ocr_pages_total: number;
+  ocr_pages_done: number;
+  embedded: boolean;
+  visual_pages_total: number;
+  visual_pages_done: number;
+  error: string | null;
 }
 
-export interface CapacityInfo {
-  total_pages: number;
-  max_pages: number;
-  remaining: number;
-  document_count: number;
-  max_documents: number;
+/** Normalized [x0, y0, x1, y1] in 0-1 of the displayed page. */
+export type Box = [number, number, number, number];
+
+export interface Citation {
+  n: number;
+  page: number;
+  kind: 'text' | 'figure' | 'region';
+  boxes: Box[];
+  figure_box?: Box;
+  precise?: boolean;
+  snippet: string;
 }
 
-async function check(res: Response): Promise<any> {
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations: Citation[];
+  meta: { model?: string; pages_read?: number[]; seconds?: number };
+  created_at: number;
+  /** Client-only states. */
+  pending?: boolean;
+  error?: boolean;
+}
+
+export const OFFLINE_MESSAGE =
+  "Can't reach the Pinpoint server. Start it with \"Start Pinpoint.cmd\" (it opens http://127.0.0.1:8000), then try again.";
+
+/** fetch() that turns "server unreachable" into an actionable message. */
+async function req(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new Error(OFFLINE_MESSAGE);
   }
-  return res.json();
 }
 
-export async function getHealth(): Promise<any> {
-  const res = await fetch('/api/health');
-  return check(res);
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let detail = `Request failed (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (typeof body.detail === 'string') detail = body.detail;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<T>;
 }
 
-export async function listDocuments(): Promise<{ documents: DocumentInfo[]; capacity: CapacityInfo }> {
-  const res = await fetch('/api/documents');
-  return check(res);
+export const fileUrl = (id: string) => `/api/documents/${id}/file`;
+
+export async function recentDocuments(): Promise<DocInfo[]> {
+  return (await json<{ documents: DocInfo[] }>(await req('/api/documents'))).documents;
 }
 
-export async function uploadFile(file: File): Promise<any> {
+export async function uploadPdf(file: File): Promise<DocInfo> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch('/api/uploads', { method: 'POST', body: form });
-  return check(res);
+  return json<DocInfo>(await req('/api/documents', { method: 'POST', body: form }));
 }
 
-export async function commitDocument(upload_id: string, pages: number[]): Promise<any> {
-  const res = await fetch('/api/documents', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ upload_id, pages }),
-  });
-  return check(res);
+export async function getDocument(id: string): Promise<DocInfo> {
+  return json<DocInfo>(await req(`/api/documents/${id}`));
 }
 
-export async function deleteDocument(id: string): Promise<any> {
-  const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
-  return check(res);
+export async function openDocument(id: string): Promise<DocInfo> {
+  return json<DocInfo>(await req(`/api/documents/${id}/open`, { method: 'POST' }));
 }
 
-export function pageImageUrl(pageId: string): string {
-  return `/api/pages/${pageId}/image`;
+export async function getMessages(id: string): Promise<Message[]> {
+  return (await json<{ messages: Message[] }>(await req(`/api/documents/${id}/messages`))).messages;
 }
 
-export type EvidenceBox = [number, number, number, number];
-
-export interface EvidenceItem {
-  id: string;
-  document_id: string;
-  filename: string;
-  page_id: string;
-  physical_page_number: number;
-  kind: string;
-  scope: string;
-  boxes: EvidenceBox[];
-  image_url: string;
+export async function clearMessages(id: string): Promise<void> {
+  await json(await req(`/api/documents/${id}/messages`, { method: 'DELETE' }));
 }
 
-export interface SearchResult {
-  id: string;
-  state: string;
-  outcome: string;
-  coverage: { checked_pages: number; total_pages: number };
-  evidence: EvidenceItem[];
-  model_id: string;
-  errors: Array<{ code: string }>;
-}
-
-export interface JobStatus {
-  id: string;
-  kind: string;
-  state: string;
-  completed_units: number;
-  total_units: number;
-  error_code: string | null;
-  cancel_requested: boolean;
-}
-
-export async function createSearch(question: string, document_ids: string[]): Promise<{ search_id: string; job_id: string }> {
-  const res = await fetch('/api/searches', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, document_ids }),
-  });
-  return check(res);
-}
-
-export async function getSearch(id: string): Promise<SearchResult> {
-  const res = await fetch(`/api/searches/${id}`);
-  return check(res);
-}
-
-export async function listSearches(): Promise<{ searches: Array<{ id: string; question: string; outcome: string }> }> {
-  const res = await fetch('/api/searches');
-  return check(res);
-}
-
-export async function getJob(id: string): Promise<JobStatus> {
-  const res = await fetch(`/api/jobs/${id}`);
-  return check(res);
-}
-
-export async function cancelJob(id: string): Promise<JobStatus> {
-  const res = await fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
-  return check(res);
-}
-
-export function parsePageRanges(spec: string, maxPage: number): number[] {
-  const out = new Set<number>();
-  for (const part of spec.split(',')) {
-    const t = part.trim();
-    if (!t) continue;
-    const m = t.match(/^(\d+)\s*-\s*(\d+)$/);
-    if (m) {
-      let a = parseInt(m[1], 10);
-      let b = parseInt(m[2], 10);
-      if (a > b) [a, b] = [b, a];
-      for (let p = a; p <= b; p++) {
-        if (p >= 1 && p <= maxPage) out.add(p);
-      }
-    } else {
-      const p = parseInt(t, 10);
-      if (!Number.isNaN(p) && p >= 1 && p <= maxPage) out.add(p);
-    }
-  }
-  return [...out].sort((a, b) => a - b);
+export async function ask(id: string, question: string): Promise<Message> {
+  return json<Message>(
+    await req(`/api/documents/${id}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    }),
+  );
 }

@@ -1,24 +1,25 @@
 {
-  "name": "visual-evidence-frontend",
+  "name": "pinpoint-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "test:e2e": "npx playwright test --config playwright.config.ts"
+    "build": "vite build"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-zoom-pan-pinch": "^3.6.1"
+    "vgpu": "^0.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@webgpu/types": "^0.1.74",
     "typescript": "^5.5.3",
-    "vite": "^6.0.0",
-    "@playwright/test": "^1.49.0"
+    "vite": "^6.0.0"
   }
 }

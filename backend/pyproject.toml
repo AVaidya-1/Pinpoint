@@ -1,13 +1,14 @@
 [project]
-name = "visual-evidence-backend"
+name = "pinpoint-backend"
 version = "0.1.0"
-description = "Visual Evidence localhost backend (P0 import/viewer slice)"
+description = "Pinpoint backend: PDF indexing, retrieval and Gemma 4 grounded answers"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
   "python-multipart>=0.0.9",
   "python-dotenv>=1.0",
+  "pymupdf>=1.24",
   "pypdfium2>=4.30",
   "Pillow>=10.0",
   "pydantic>=2.0",
@@ -25,6 +26,7 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "strict"
+tmp_path_retention_policy = "all"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
